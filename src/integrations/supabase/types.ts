@@ -14,7 +14,266 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      action_plans: {
+        Row: {
+          analysis_result_id: string
+          business_id: string
+          category: string
+          created_at: string
+          description: string
+          estimated_effort: string | null
+          estimated_impact: string | null
+          id: string
+          priority: string
+          status: string | null
+          tasks: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_result_id: string
+          business_id: string
+          category: string
+          created_at?: string
+          description: string
+          estimated_effort?: string | null
+          estimated_impact?: string | null
+          id?: string
+          priority: string
+          status?: string | null
+          tasks?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_result_id?: string
+          business_id?: string
+          category?: string
+          created_at?: string
+          description?: string
+          estimated_effort?: string | null
+          estimated_impact?: string | null
+          id?: string
+          priority?: string
+          status?: string | null
+          tasks?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_plans_analysis_result_id_fkey"
+            columns: ["analysis_result_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_plans_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analysis_results: {
+        Row: {
+          analysis_version: string | null
+          analyzed_at: string
+          branding_details: Json | null
+          branding_score: number
+          business_id: string
+          design_details: Json | null
+          design_score: number
+          id: string
+          issues_identified: string[] | null
+          overall_score: number | null
+          recommendations: string[] | null
+          seo_details: Json | null
+          seo_score: number
+        }
+        Insert: {
+          analysis_version?: string | null
+          analyzed_at?: string
+          branding_details?: Json | null
+          branding_score: number
+          business_id: string
+          design_details?: Json | null
+          design_score: number
+          id?: string
+          issues_identified?: string[] | null
+          overall_score?: number | null
+          recommendations?: string[] | null
+          seo_details?: Json | null
+          seo_score: number
+        }
+        Update: {
+          analysis_version?: string | null
+          analyzed_at?: string
+          branding_details?: Json | null
+          branding_score?: number
+          business_id?: string
+          design_details?: Json | null
+          design_score?: number
+          id?: string
+          issues_identified?: string[] | null
+          overall_score?: number | null
+          recommendations?: string[] | null
+          seo_details?: Json | null
+          seo_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_results_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      businesses: {
+        Row: {
+          description: string | null
+          discovered_at: string
+          email: string | null
+          id: string
+          industry: string | null
+          last_analyzed: string | null
+          location: string | null
+          name: string
+          phone: string | null
+          social_media: Json | null
+          status: string | null
+          website_url: string | null
+        }
+        Insert: {
+          description?: string | null
+          discovered_at?: string
+          email?: string | null
+          id?: string
+          industry?: string | null
+          last_analyzed?: string | null
+          location?: string | null
+          name: string
+          phone?: string | null
+          social_media?: Json | null
+          status?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          description?: string | null
+          discovered_at?: string
+          email?: string | null
+          id?: string
+          industry?: string | null
+          last_analyzed?: string | null
+          location?: string | null
+          name?: string
+          phone?: string | null
+          social_media?: Json | null
+          status?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      email_campaigns: {
+        Row: {
+          action_plan_id: string | null
+          business_id: string
+          created_at: string
+          email_body: string
+          id: string
+          opened_at: string | null
+          recipient_email: string
+          recipient_name: string | null
+          replied_at: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          action_plan_id?: string | null
+          business_id: string
+          created_at?: string
+          email_body: string
+          id?: string
+          opened_at?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          action_plan_id?: string | null
+          business_id?: string
+          created_at?: string
+          email_body?: string
+          id?: string
+          opened_at?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaigns_action_plan_id_fkey"
+            columns: ["action_plan_id"]
+            isOneToOne: false
+            referencedRelation: "action_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaigns_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      search_queries: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          query_type: string
+          results_count: number | null
+          search_parameters: Json
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          query_type: string
+          results_count?: number | null
+          search_parameters: Json
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          query_type?: string
+          results_count?: number | null
+          search_parameters?: Json
+          status?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
