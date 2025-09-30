@@ -143,8 +143,9 @@
   /* Hero Button Variants */
   .btn-hero {
     @apply bg-gradient-to-r from-primary to-primary-hover text-primary-foreground;
-    @apply shadow-hero hover:shadow-elevated transition-all duration-300;
+    @apply shadow-lg hover:shadow-xl transition-all duration-300;
     @apply transform hover:scale-105 active:scale-95;
+    box-shadow: 0 25px 50px -12px hsl(217 91% 60% / 0.25);
   }
   
   /* Score Badge Variants */
