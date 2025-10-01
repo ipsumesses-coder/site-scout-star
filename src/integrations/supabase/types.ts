@@ -92,6 +92,8 @@ export type Database = {
           recommendations: string[] | null
           seo_details: Json | null
           seo_score: number
+          uiux_details: Json | null
+          uiux_score: number | null
         }
         Insert: {
           analysis_version?: string | null
@@ -107,6 +109,8 @@ export type Database = {
           recommendations?: string[] | null
           seo_details?: Json | null
           seo_score: number
+          uiux_details?: Json | null
+          uiux_score?: number | null
         }
         Update: {
           analysis_version?: string | null
@@ -122,6 +126,8 @@ export type Database = {
           recommendations?: string[] | null
           seo_details?: Json | null
           seo_score?: number
+          uiux_details?: Json | null
+          uiux_score?: number | null
         }
         Relationships: [
           {

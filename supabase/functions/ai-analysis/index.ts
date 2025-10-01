@@ -81,9 +81,11 @@ serve(async (req) => {
         business_id,
         seo_score: analysisResult.seo_score,
         design_score: analysisResult.design_score,
+        uiux_score: analysisResult.uiux_score || analysisResult.design_score,
         branding_score: analysisResult.branding_score,
         seo_details: analysisResult.seo_details,
         design_details: analysisResult.design_details,
+        uiux_details: analysisResult.uiux_details || analysisResult.design_details,
         branding_details: analysisResult.branding_details,
         issues_identified: analysisResult.issues_identified,
         recommendations: analysisResult.recommendations
@@ -146,8 +148,8 @@ serve(async (req) => {
 
 async function performAIAnalysis(business: any, apiKey: string) {
   const analysisPrompt = `
-Analyze the following business for SEO, website design, and branding effectiveness. 
-Provide numerical scores (0-100) and detailed recommendations.
+Analyze the following business for SEO, website design, UI/UX, and branding effectiveness. 
+Provide numerical scores (0-100) and detailed analysis with specific examples.
 
 Business Details:
 - Name: ${business.name}
@@ -157,21 +159,28 @@ Business Details:
 - Description: ${business.description}
 
 Please analyze:
-1. SEO (keyword usage, meta tags, page speed, mobile optimization)
-2. Website Design (UX, navigation, responsiveness, visual appeal)
-3. Branding (consistency, messaging, visual identity)
+1. SEO (keyword usage, meta tags, page speed, mobile optimization, structured data)
+2. Website Design (layout, visual hierarchy, typography, color scheme, imagery)
+3. UI/UX (navigation, user flow, accessibility, interaction design, mobile experience)
+4. Branding (brand identity, consistency, messaging, voice, visual elements)
 
 Format your response as JSON with this structure:
 {
   "seo_score": number,
   "design_score": number,
+  "uiux_score": number,
   "branding_score": number,
   "seo_details": {
+    "strengths": ["specific strength 1", "specific strength 2"],
+    "weaknesses": ["specific weakness 1", "specific weakness 2"],
+    "opportunities": ["specific opportunity 1", "specific opportunity 2"]
+  },
+  "design_details": {
     "strengths": [],
     "weaknesses": [],
     "opportunities": []
   },
-  "design_details": {
+  "uiux_details": {
     "strengths": [],
     "weaknesses": [],
     "opportunities": []
@@ -181,8 +190,8 @@ Format your response as JSON with this structure:
     "weaknesses": [],
     "opportunities": []
   },
-  "issues_identified": [],
-  "recommendations": []
+  "issues_identified": ["issue 1", "issue 2"],
+  "recommendations": ["recommendation 1", "recommendation 2"]
 }
 `;
 
@@ -228,9 +237,10 @@ Format your response as JSON with this structure:
     
     // Fallback: create mock analysis based on business data
     return {
-      seo_score: Math.floor(Math.random() * 40) + 30, // 30-70
-      design_score: Math.floor(Math.random() * 40) + 40, // 40-80
-      branding_score: Math.floor(Math.random() * 50) + 25, // 25-75
+      seo_score: Math.floor(Math.random() * 40) + 30,
+      design_score: Math.floor(Math.random() * 40) + 40,
+      uiux_score: Math.floor(Math.random() * 40) + 35,
+      branding_score: Math.floor(Math.random() * 50) + 25,
       seo_details: {
         strengths: ["Website loads quickly"],
         weaknesses: ["Missing meta descriptions", "Limited keyword optimization"],
@@ -240,6 +250,11 @@ Format your response as JSON with this structure:
         strengths: ["Clean layout"],
         weaknesses: ["Poor mobile responsiveness", "Outdated design"],
         opportunities: ["Modern redesign", "Better navigation"]
+      },
+      uiux_details: {
+        strengths: ["Basic functionality works"],
+        weaknesses: ["Confusing navigation", "Poor accessibility"],
+        opportunities: ["User testing", "Simplified user flows"]
       },
       branding_details: {
         strengths: ["Consistent colors"],

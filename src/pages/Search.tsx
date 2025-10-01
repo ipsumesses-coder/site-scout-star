@@ -63,9 +63,10 @@ const Search = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [searchQueryId, setSearchQueryId] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
   const { toast } = useToast();
 
-  const handleSearch = async () => {
+  const handleSearch = async (loadMore = false) => {
     if (searchType === "url" && !url.trim()) {
       toast({
         title: "URL Required",
@@ -84,8 +85,13 @@ const Search = () => {
       return;
     }
 
+    const currentOffset = loadMore ? offset : 0;
+    if (!loadMore) {
+      setOffset(0);
+      setShowResults(false);
+    }
+
     setIsSearching(true);
-    setShowResults(false);
     
     try {
       const { data, error } = await supabase.functions.invoke('business-discovery', {
@@ -93,8 +99,9 @@ const Search = () => {
           query_type: searchType,
           location: searchType === "location" ? location : undefined,
           url: searchType === "url" ? url : undefined,
-          industry: industry || undefined,
-          radius: 25
+          industry: industry && industry.trim() !== '' ? industry : undefined,
+          radius: 25,
+          offset: currentOffset
         }
       });
 
@@ -103,6 +110,9 @@ const Search = () => {
       if (data.success) {
         setSearchQueryId(data.search_query_id);
         setShowResults(true);
+        if (loadMore) {
+          setOffset(currentOffset + 50);
+        }
         toast({
           title: "Search Complete",
           description: `Found ${data.businesses_found} businesses`,
@@ -229,7 +239,7 @@ const Search = () => {
               )}
 
               <Button 
-                onClick={handleSearch}
+                onClick={() => handleSearch(false)}
                 disabled={isSearching}
                 size="lg"
                 className="w-full btn-hero"
@@ -253,7 +263,13 @@ const Search = () => {
           {showResults && <SearchFilters />}
 
           {/* Results */}
-          {showResults && searchQueryId && <BusinessResults searchQueryId={searchQueryId} />}
+          {showResults && searchQueryId && (
+            <BusinessResults 
+              searchQueryId={searchQueryId}
+              onLoadMore={() => handleSearch(true)}
+              isLoadingMore={isSearching}
+            />
+          )}
         </div>
       </div>
     </div>

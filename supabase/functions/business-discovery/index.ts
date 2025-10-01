@@ -12,6 +12,7 @@ interface SearchRequest {
   industry?: string;
   url?: string;
   radius?: number;
+  offset?: number;
 }
 
 serve(async (req) => {
@@ -25,7 +26,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { query_type, location, industry, url, radius = 25 }: SearchRequest = await req.json();
+    const { query_type, location, industry, url, radius = 25, offset = 0 }: SearchRequest = await req.json();
 
     console.log('Business discovery request:', { query_type, location, industry, url, radius });
 
@@ -48,7 +49,7 @@ serve(async (req) => {
 
     if (query_type === 'location' && location) {
       // Simulate business discovery using AI and web scraping
-      discoveredBusinesses = await discoverBusinessesByLocation(location, industry, radius);
+      discoveredBusinesses = await discoverBusinessesByLocation(location, industry, radius, offset);
     } else if (query_type === 'url' && url) {
       // Analyze specific business from URL
       discoveredBusinesses = await analyzeBusinessFromUrl(url);
@@ -113,7 +114,7 @@ serve(async (req) => {
 });
 
 // Google Places API business discovery function
-async function discoverBusinessesByLocation(location: string, industry?: string, radius = 25) {
+async function discoverBusinessesByLocation(location: string, industry?: string, radius = 25, offset = 0) {
   const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
   if (!apiKey) {
     throw new Error('Google Places API key not configured');
@@ -136,7 +137,7 @@ async function discoverBusinessesByLocation(location: string, industry?: string,
 
     // Build the search query with industry filter if specified
     let searchQuery = 'business';
-    if (industry) {
+    if (industry && industry.trim() !== '') {
       searchQuery = industry;
     }
 
@@ -152,8 +153,11 @@ async function discoverBusinessesByLocation(location: string, industry?: string,
 
     const businesses = [];
 
-    // Process each place to get detailed information
-    for (const place of placesData.results.slice(0, 10)) { // Limit to 10 businesses
+    // Process each place to get detailed information with pagination
+    const startIndex = offset;
+    const endIndex = Math.min(offset + 50, placesData.results.length);
+    
+    for (const place of placesData.results.slice(startIndex, endIndex)) {
       try {
         // Get place details including website
         const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,website,formatted_phone_number,types&key=${apiKey}`;

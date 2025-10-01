@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.email-generation]
 verify_jwt = false
+
+[functions.detailed-report]
+verify_jwt = false
