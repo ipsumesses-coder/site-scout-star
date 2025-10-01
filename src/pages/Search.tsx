@@ -9,14 +9,60 @@ import { SearchFilters } from "@/components/SearchFilters";
 import { BusinessResults } from "@/components/BusinessResults";
 import { Search as SearchIcon, MapPin, Building2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+const UK_COUNTIES = [
+  // England
+  "Bedfordshire", "Berkshire", "Bristol", "Buckinghamshire", "Cambridgeshire", "Cheshire", 
+  "City of London", "Cornwall", "Cumbria", "Derbyshire", "Devon", "Dorset", "Durham", 
+  "East Riding of Yorkshire", "East Sussex", "Essex", "Gloucestershire", "Greater London", 
+  "Greater Manchester", "Hampshire", "Herefordshire", "Hertfordshire", "Isle of Wight", 
+  "Kent", "Lancashire", "Leicestershire", "Lincolnshire", "Merseyside", "Norfolk", 
+  "North Yorkshire", "Northamptonshire", "Northumberland", "Nottinghamshire", "Oxfordshire", 
+  "Rutland", "Shropshire", "Somerset", "South Yorkshire", "Staffordshire", "Suffolk", 
+  "Surrey", "Tyne and Wear", "Warwickshire", "West Midlands", "West Sussex", "West Yorkshire", 
+  "Wiltshire", "Worcestershire",
+  // Wales
+  "Blaenau Gwent", "Bridgend", "Caerphilly", "Cardiff", "Carmarthenshire", "Ceredigion", 
+  "Conwy", "Denbighshire", "Flintshire", "Gwynedd", "Isle of Anglesey", "Merthyr Tydfil", 
+  "Monmouthshire", "Neath Port Talbot", "Newport", "Pembrokeshire", "Powys", 
+  "Rhondda Cynon Taf", "Swansea", "Torfaen", "Vale of Glamorgan", "Wrexham",
+  // Scotland
+  "Aberdeen City", "Aberdeenshire", "Angus", "Argyll and Bute", "Clackmannanshire", 
+  "Dumfries and Galloway", "Dundee City", "East Ayrshire", "East Dunbartonshire", 
+  "East Lothian", "East Renfrewshire", "Edinburgh", "Falkirk", "Fife", "Glasgow City", 
+  "Highland", "Inverclyde", "Midlothian", "Moray", "North Ayrshire", "North Lanarkshire", 
+  "Orkney Islands", "Perth and Kinross", "Renfrewshire", "Scottish Borders", 
+  "Shetland Islands", "South Ayrshire", "South Lanarkshire", "Stirling", 
+  "West Dunbartonshire", "West Lothian", "Western Isles",
+  // Northern Ireland
+  "Antrim and Newtownabbey", "Ards and North Down", "Armagh City", "Banbridge and Craigavon", 
+  "Belfast", "Causeway Coast and Glens", "Derry City and Strabane", "Fermanagh and Omagh", 
+  "Lisburn and Castlereagh", "Mid and East Antrim", "Mid Ulster", "Newry, Mourne and Down"
+];
+
+const US_CITIES = [
+  "New York, NY", "Los Angeles, CA", "Chicago, IL", "Houston, TX", "Phoenix, AZ", 
+  "Philadelphia, PA", "San Antonio, TX", "San Diego, CA", "Dallas, TX", "San Jose, CA", 
+  "Austin, TX", "Jacksonville, FL", "Fort Worth, TX", "Columbus, OH", "Charlotte, NC", 
+  "San Francisco, CA", "Indianapolis, IN", "Seattle, WA", "Denver, CO", "Washington, DC", 
+  "Boston, MA", "El Paso, TX", "Nashville, TN", "Detroit, MI", "Oklahoma City, OK", 
+  "Portland, OR", "Las Vegas, NV", "Memphis, TN", "Louisville, KY", "Baltimore, MD", 
+  "Milwaukee, WI", "Albuquerque, NM", "Tucson, AZ", "Fresno, CA", "Mesa, AZ", 
+  "Sacramento, CA", "Atlanta, GA", "Kansas City, MO", "Colorado Springs, CO", "Omaha, NE", 
+  "Raleigh, NC", "Miami, FL", "Long Beach, CA", "Virginia Beach, VA", "Oakland, CA", 
+  "Minneapolis, MN", "Tulsa, OK", "Tampa, FL", "Arlington, TX", "New Orleans, LA"
+];
 
 const Search = () => {
   const [searchType, setSearchType] = useState<"url" | "location">("url");
   const [url, setUrl] = useState("");
+  const [country, setCountry] = useState<"UK" | "US">("US");
   const [location, setLocation] = useState("");
   const [industry, setIndustry] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [searchQueryId, setSearchQueryId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleSearch = async () => {
@@ -32,23 +78,48 @@ const Search = () => {
     if (searchType === "location" && !location.trim()) {
       toast({
         title: "Location Required", 
-        description: "Please enter a location to search",
+        description: "Please select a location to search",
         variant: "destructive"
       });
       return;
     }
 
     setIsSearching(true);
+    setShowResults(false);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsSearching(false);
-      setShowResults(true);
-      toast({
-        title: "Search Complete",
-        description: `Found businesses ${searchType === "url" ? "for the provided URL" : `in ${location}`}`,
+    try {
+      const { data, error } = await supabase.functions.invoke('business-discovery', {
+        body: {
+          query_type: searchType,
+          location: searchType === "location" ? location : undefined,
+          url: searchType === "url" ? url : undefined,
+          industry: industry || undefined,
+          radius: 25
+        }
       });
-    }, 2000);
+
+      if (error) throw error;
+
+      if (data.success) {
+        setSearchQueryId(data.search_query_id);
+        setShowResults(true);
+        toast({
+          title: "Search Complete",
+          description: `Found ${data.businesses_found} businesses`,
+        });
+      } else {
+        throw new Error(data.error || 'Search failed');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast({
+        title: "Search Failed",
+        description: error instanceof Error ? error.message : "Failed to search for businesses",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   return (
@@ -110,30 +181,49 @@ const Search = () => {
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      placeholder="San Francisco, CA or specific address"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className="text-lg py-3"
-                    />
-                    <Select value={industry} onValueChange={setIndustry}>
+                    <Select value={country} onValueChange={(value) => {
+                      setCountry(value as "UK" | "US");
+                      setLocation("");
+                    }}>
                       <SelectTrigger className="text-lg py-3">
-                        <SelectValue placeholder="Industry (optional)" />
+                        <SelectValue placeholder="Select Country" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="restaurants">Restaurants</SelectItem>
-                        <SelectItem value="retail">Retail</SelectItem>
-                        <SelectItem value="services">Professional Services</SelectItem>
-                        <SelectItem value="healthcare">Healthcare</SelectItem>
-                        <SelectItem value="beauty">Beauty & Wellness</SelectItem>
-                        <SelectItem value="automotive">Automotive</SelectItem>
-                        <SelectItem value="real-estate">Real Estate</SelectItem>
-                        <SelectItem value="fitness">Fitness & Sports</SelectItem>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="US">United States</SelectItem>
+                        <SelectItem value="UK">United Kingdom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={location} onValueChange={setLocation}>
+                      <SelectTrigger className="text-lg py-3">
+                        <SelectValue placeholder={country === "UK" ? "Select County" : "Select City"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50 max-h-[300px]">
+                        {(country === "UK" ? UK_COUNTIES : US_CITIES).map((loc) => (
+                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <Select value={industry} onValueChange={setIndustry}>
+                    <SelectTrigger className="text-lg py-3">
+                      <SelectValue placeholder="Industry (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="restaurant">Restaurants</SelectItem>
+                      <SelectItem value="retail">Retail</SelectItem>
+                      <SelectItem value="services">Professional Services</SelectItem>
+                      <SelectItem value="healthcare">Healthcare</SelectItem>
+                      <SelectItem value="beauty">Beauty & Wellness</SelectItem>
+                      <SelectItem value="automotive">Automotive</SelectItem>
+                      <SelectItem value="real estate">Real Estate</SelectItem>
+                      <SelectItem value="fitness">Fitness & Sports</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
                   <p className="text-sm text-muted-foreground">
-                    Search for businesses in a specific area, optionally filtered by industry
+                    Search for businesses in a specific location, optionally filtered by industry
                   </p>
                 </div>
               )}
@@ -163,7 +253,7 @@ const Search = () => {
           {showResults && <SearchFilters />}
 
           {/* Results */}
-          {showResults && <BusinessResults searchType={searchType} query={searchType === "url" ? url : location} />}
+          {showResults && searchQueryId && <BusinessResults searchQueryId={searchQueryId} />}
         </div>
       </div>
     </div>

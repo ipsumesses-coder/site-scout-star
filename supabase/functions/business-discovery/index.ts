@@ -112,86 +112,97 @@ serve(async (req) => {
   }
 });
 
-// Simulated business discovery function
+// Google Places API business discovery function
 async function discoverBusinessesByLocation(location: string, industry?: string, radius = 25) {
-  // In a real implementation, this would use:
-  // - Google Places API
-  // - Yelp API  
-  // - Web scraping tools
-  // - Local business directories
-  
-  console.log(`Discovering businesses in ${location}, industry: ${industry}, radius: ${radius}km`);
-
-  // Mock data for demonstration - in production, replace with real APIs
-  const mockBusinesses = [
-    {
-      name: "Sunshine Café & Bakery",
-      website_url: "https://sunshinecafe.com",
-      location: location,
-      industry: industry || "Restaurant",
-      phone: "(555) 123-4567",
-      email: "hello@sunshinecafe.com",
-      description: "Fresh baked goods and artisanal coffee in a cozy atmosphere",
-      social_media: {
-        facebook: "sunshinecafe",
-        instagram: "sunshine_cafe_bakery"
-      }
-    },
-    {
-      name: "Digital Solutions Pro",
-      website_url: "https://digitalsolutionspro.com",
-      location: location,
-      industry: industry || "Technology Services",
-      phone: "(555) 234-5678",
-      email: "info@digitalsolutionspro.com",
-      description: "Web development and digital marketing for small businesses",
-      social_media: {
-        linkedin: "digital-solutions-pro",
-        twitter: "digitalsolutionspro"
-      }
-    },
-    {
-      name: "Urban Fitness Studio",
-      website_url: "https://urbanfitnessstudio.com",
-      location: location,
-      industry: industry || "Health & Wellness",
-      phone: "(555) 345-6789",
-      email: "contact@urbanfitnessstudio.com",
-      description: "Personal training and group fitness classes",
-      social_media: {
-        instagram: "urbanfitnessstudio",
-        facebook: "urbanfitness"
-      }
-    }
-  ];
-
-  // Filter by industry if specified
-  if (industry) {
-    return mockBusinesses.filter(business => 
-      business.industry.toLowerCase().includes(industry.toLowerCase())
-    );
+  const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
+  if (!apiKey) {
+    throw new Error('Google Places API key not configured');
   }
 
-  return mockBusinesses;
+  console.log(`Discovering businesses in ${location}, industry: ${industry}, radius: ${radius}km`);
+
+  try {
+    // First, geocode the location to get coordinates
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${apiKey}`;
+    const geocodeResponse = await fetch(geocodeUrl);
+    const geocodeData = await geocodeResponse.json();
+
+    if (geocodeData.status !== 'OK' || !geocodeData.results[0]) {
+      throw new Error(`Failed to geocode location: ${location}`);
+    }
+
+    const { lat, lng } = geocodeData.results[0].geometry.location;
+    console.log(`Geocoded location: ${lat}, ${lng}`);
+
+    // Build the search query with industry filter if specified
+    let searchQuery = 'business';
+    if (industry) {
+      searchQuery = industry;
+    }
+
+    // Use Google Places Text Search API
+    const placesUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&location=${lat},${lng}&radius=${radius * 1000}&key=${apiKey}`;
+    const placesResponse = await fetch(placesUrl);
+    const placesData = await placesResponse.json();
+
+    if (placesData.status !== 'OK') {
+      console.error('Places API error:', placesData.status);
+      return [];
+    }
+
+    const businesses = [];
+
+    // Process each place to get detailed information
+    for (const place of placesData.results.slice(0, 10)) { // Limit to 10 businesses
+      try {
+        // Get place details including website
+        const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,website,formatted_phone_number,types&key=${apiKey}`;
+        const detailsResponse = await fetch(detailsUrl);
+        const detailsData = await detailsResponse.json();
+
+        if (detailsData.status === 'OK' && detailsData.result) {
+          const details = detailsData.result;
+          
+          businesses.push({
+            name: details.name,
+            website_url: details.website || null,
+            location: details.formatted_address || location,
+            industry: industry || (details.types && details.types[0] ? details.types[0].replace(/_/g, ' ') : 'General'),
+            phone: details.formatted_phone_number || null,
+            email: null, // Email not available from Google Places
+            description: `${details.name} located in ${details.formatted_address || location}`,
+            social_media: {} // Social media not directly available from Google Places
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching place details:', error);
+      }
+    }
+
+    console.log(`Found ${businesses.length} businesses`);
+    return businesses;
+
+  } catch (error) {
+    console.error('Error in Google Places API:', error);
+    throw error;
+  }
 }
 
 // Analyze specific business from URL
 async function analyzeBusinessFromUrl(url: string) {
   console.log(`Analyzing business from URL: ${url}`);
   
-  // In a real implementation, this would:
-  // - Extract domain and business information
-  // - Use web scraping to get business details
-  // - Cross-reference with business directories
+  // Extract domain from URL
+  const domain = new URL(url).hostname.replace('www.', '');
   
   return [{
-    name: "Analyzed Business",
+    name: domain,
     website_url: url,
     location: "Unknown",
     industry: "Unknown",
     phone: null,
     email: null,
-    description: "Business analyzed from provided URL",
+    description: `Business at ${url}`,
     social_media: {}
   }];
 }
