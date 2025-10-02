@@ -9,5 +9,8 @@ verify_jwt = false
 [functions.email-generation]
 verify_jwt = false
 
+[functions.generate-action-plan]
+verify_jwt = false
+
 [functions.detailed-report]
 verify_jwt = false

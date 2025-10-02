@@ -23,6 +23,8 @@ interface BusinessResultsProps {
   searchQueryId: string;
   onLoadMore: () => void;
   isLoadingMore: boolean;
+  isUrlSearch?: boolean;
+  resultsPerPage: number;
 }
 
 interface Business {
@@ -44,7 +46,7 @@ interface Business {
   issues?: string[];
 }
 
-export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: BusinessResultsProps) => {
+export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, isUrlSearch = false, resultsPerPage }: BusinessResultsProps) => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
@@ -52,6 +54,9 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
   const [filterBy, setFilterBy] = useState<string>("all");
   const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  const [detailedReports, setDetailedReports] = useState<Map<string, any>>(new Map());
+  const [generatingActionPlan, setGeneratingActionPlan] = useState<string | null>(null);
+  const [generatingEmails, setGeneratingEmails] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -170,7 +175,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
       if (error) throw error;
 
       if (data.success) {
-        console.log('Detailed Report:', data.report);
+        setDetailedReports(prev => new Map(prev).set(businessId, data.report));
         toast({
           title: "Report Generated",
           description: "Detailed analysis report has been generated successfully"
@@ -188,7 +193,48 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
     }
   };
 
-  const handleGenerateEmail = async (businessId: string) => {
+  const handleGenerateActionPlan = async (businessId: string) => {
+    const report = detailedReports.get(businessId);
+    if (!report) {
+      toast({
+        title: "Generate Report First",
+        description: "Please generate a detailed report before creating an action plan",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setGeneratingActionPlan(businessId);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-action-plan', {
+        body: { 
+          business_id: businessId,
+          detailed_report: report
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Action Plan Created",
+          description: `Generated ${data.action_plans.length} actionable improvement plans`
+        });
+      }
+    } catch (error) {
+      console.error('Action plan generation error:', error);
+      toast({
+        title: "Action Plan Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate action plan",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingActionPlan(null);
+    }
+  };
+
+  const handleGenerateEmails = async (businessId: string) => {
+    setGeneratingEmails(businessId);
     try {
       const { data, error } = await supabase.functions.invoke('email-generation', {
         body: { business_id: businessId }
@@ -197,18 +243,21 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
       if (error) throw error;
 
       if (data.success) {
+        console.log('Email Variants:', data.variants);
         toast({
-          title: "Email Generated",
-          description: "Cold email has been generated successfully"
+          title: "Emails Generated",
+          description: "3 different cold email styles have been generated successfully"
         });
       }
     } catch (error) {
       console.error('Email generation error:', error);
       toast({
         title: "Email Generation Failed",
-        description: error instanceof Error ? error.message : "Failed to generate email",
+        description: error instanceof Error ? error.message : "Failed to generate emails",
         variant: "destructive"
       });
+    } finally {
+      setGeneratingEmails(null);
     }
   };
 
@@ -538,12 +587,40 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
                           <Button 
                             variant="outline" 
                             className="flex-1"
-                            onClick={() => handleGenerateEmail(business.id)}
+                            onClick={() => handleGenerateEmails(business.id)}
+                            disabled={generatingEmails === business.id}
                           >
-                            <Mail className="h-4 w-4 mr-2" />
-                            Generate Email
+                            {generatingEmails === business.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Mail className="h-4 w-4 mr-2" />
+                                Generate 3 Cold Emails
+                              </>
+                            )}
                           </Button>
                         </div>
+
+                        {detailedReports.has(business.id) && (
+                          <Button 
+                            variant="secondary" 
+                            className="w-full mt-2"
+                            onClick={() => handleGenerateActionPlan(business.id)}
+                            disabled={generatingActionPlan === business.id}
+                          >
+                            {generatingActionPlan === business.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Creating Action Plan...
+                              </>
+                            ) : (
+                              'Create Action Plan from Report'
+                            )}
+                          </Button>
+                        )}
                       </>
                     ) : (
                       <div className="space-y-4">
@@ -573,22 +650,24 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
             })}
           </div>
 
-          <div className="flex justify-center pt-6">
-            <Button 
-              onClick={onLoadMore}
-              disabled={isLoadingMore}
-              size="lg"
-            >
-              {isLoadingMore ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading More...
-                </>
-              ) : (
-                "Load 50 More Businesses"
-              )}
-            </Button>
-          </div>
+          {!isUrlSearch && (
+            <div className="flex justify-center pt-6">
+              <Button 
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                size="lg"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading More...
+                  </>
+                ) : (
+                  `Load ${resultsPerPage} More Businesses`
+                )}
+              </Button>
+            </div>
+          )}
         </>
       )}
     </div>

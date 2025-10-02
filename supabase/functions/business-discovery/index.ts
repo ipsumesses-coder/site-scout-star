@@ -13,6 +13,7 @@ interface SearchRequest {
   url?: string;
   radius?: number;
   offset?: number;
+  limit?: number;
 }
 
 serve(async (req) => {
@@ -26,10 +27,72 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { query_type, location, industry, url, radius = 25, offset = 0 }: SearchRequest = await req.json();
+    const { query_type, location, industry, url, radius = 25, offset = 0, limit = 50 }: SearchRequest = await req.json();
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-    console.log('Business discovery request:', { query_type, location, industry, url, radius });
+    if (!GOOGLE_API_KEY && query_type === 'location') {
+      throw new Error('GOOGLE_PLACES_API_KEY is not configured');
+    }
 
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    console.log('Business discovery request:', { query_type, location, industry, url, radius, limit });
+
+    // Handle URL-only search - skip Places API and database query tracking
+    if (query_type === 'url' && url) {
+      console.log('URL-only search - analyzing single business:', url);
+      
+      const extractedUrl = url.includes('://') ? url : `https://${url}`;
+      const domain = extractedUrl.replace(/https?:\/\//, '').split('/')[0];
+      
+      const businessData = await analyzeBusinessFromUrlWithAI(extractedUrl, LOVABLE_API_KEY);
+      
+      // Check if business already exists
+      const { data: existingBusiness } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('website_url', extractedUrl)
+        .single();
+
+      let businessId: string;
+      if (existingBusiness) {
+        businessId = existingBusiness.id;
+      } else {
+        const { data: newBusiness, error: insertError } = await supabase
+          .from('businesses')
+          .insert({
+            name: businessData.name || domain,
+            website_url: extractedUrl,
+            location: businessData.location || 'Unknown',
+            industry: businessData.industry || 'Unknown',
+            description: businessData.description || `Business at ${extractedUrl}`,
+            status: 'discovered'
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        businessId = newBusiness.id;
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          businesses_found: 1,
+          search_query_id: businessId
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      );
+
+    }
+
+    // For location-based search, continue with Places API
     // Create search query record
     const { data: searchQuery, error: searchError } = await supabase
       .from('search_queries')
@@ -48,11 +111,8 @@ serve(async (req) => {
     let discoveredBusinesses: any[] = [];
 
     if (query_type === 'location' && location) {
-      // Simulate business discovery using AI and web scraping
-      discoveredBusinesses = await discoverBusinessesByLocation(location, industry, radius, offset);
-    } else if (query_type === 'url' && url) {
-      // Analyze specific business from URL
-      discoveredBusinesses = await analyzeBusinessFromUrl(url);
+      // Use Google Places API for location-based discovery
+      discoveredBusinesses = await discoverBusinessesByLocation(location, industry, radius, offset, limit);
     }
 
     // Insert discovered businesses into database
@@ -114,7 +174,7 @@ serve(async (req) => {
 });
 
 // Google Places API business discovery function
-async function discoverBusinessesByLocation(location: string, industry?: string, radius = 25, offset = 0) {
+async function discoverBusinessesByLocation(location: string, industry?: string, radius = 25, offset = 0, limit = 50) {
   const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
   if (!apiKey) {
     throw new Error('Google Places API key not configured');
@@ -155,7 +215,7 @@ async function discoverBusinessesByLocation(location: string, industry?: string,
 
     // Process each place to get detailed information with pagination
     const startIndex = offset;
-    const endIndex = Math.min(offset + 50, placesData.results.length);
+    const endIndex = Math.min(offset + limit, placesData.results.length);
     
     for (const place of placesData.results.slice(startIndex, endIndex)) {
       try {
@@ -192,21 +252,82 @@ async function discoverBusinessesByLocation(location: string, industry?: string,
   }
 }
 
-// Analyze specific business from URL
-async function analyzeBusinessFromUrl(url: string) {
-  console.log(`Analyzing business from URL: ${url}`);
+// Analyze specific business from URL with AI
+async function analyzeBusinessFromUrlWithAI(url: string, apiKey: string) {
+  console.log(`Analyzing business from URL with AI: ${url}`);
   
-  // Extract domain from URL
-  const domain = new URL(url).hostname.replace('www.', '');
+  const prompt = `Extract business information from this website: ${url}
   
-  return [{
-    name: domain,
-    website_url: url,
-    location: "Unknown",
-    industry: "Unknown",
-    phone: null,
-    email: null,
-    description: `Business at ${url}`,
-    social_media: {}
-  }];
+Provide the following information if available:
+- Business name
+- Location (city, state/country)
+- Industry/category
+- Brief description
+
+Format as JSON:
+{
+  "name": "business name",
+  "location": "city, state/country",
+  "industry": "industry category",
+  "description": "brief description"
+}`;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a business information extraction expert. Extract structured business data from URLs.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI analysis failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.choices?.[0]?.message?.content;
+
+    if (!resultText) {
+      throw new Error('No AI response received');
+    }
+
+    try {
+      const cleanedText = resultText.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleanedText);
+      return parsed;
+    } catch {
+      // Fallback: extract domain
+      const domain = url.replace(/https?:\/\//, '').split('/')[0];
+      return {
+        name: domain,
+        location: 'Unknown',
+        industry: 'Unknown',
+        description: `Business at ${url}`
+      };
+    }
+  } catch (error) {
+    console.error('Error in AI business analysis:', error);
+    const domain = url.replace(/https?:\/\//, '').split('/')[0];
+    return {
+      name: domain,
+      location: 'Unknown',
+      industry: 'Unknown',
+      description: `Business at ${url}`
+    };
+  }
 }
