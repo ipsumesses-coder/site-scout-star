@@ -9,7 +9,6 @@ const corsHeaders = {
 interface AnalysisRequest {
   business_id: string;
   force_reanalysis?: boolean;
-  use_mock_data?: boolean;
 }
 
 serve(async (req) => {
@@ -23,14 +22,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { business_id, force_reanalysis = false, use_mock_data = false }: AnalysisRequest = await req.json();
+    const { business_id, force_reanalysis = false }: AnalysisRequest = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!LOVABLE_API_KEY && !use_mock_data) {
+    if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Starting business analysis for:', business_id, 'Mock:', use_mock_data);
+    console.log('Starting business analysis for:', business_id);
 
     // Get business details
     const { data: business, error: businessError } = await supabase
@@ -72,10 +71,8 @@ serve(async (req) => {
       .update({ status: 'analyzing', last_analyzed: new Date().toISOString() })
       .eq('id', business_id);
 
-    // Perform AI analysis or use mock data
-    const analysisResult = use_mock_data 
-      ? generateMockAnalysis(business)
-      : await performAIAnalysis(business, LOVABLE_API_KEY!);
+    // Perform AI analysis
+    const analysisResult = await performAIAnalysis(business, LOVABLE_API_KEY);
 
     // Insert analysis results
     const { data: analysis, error: analysisError } = await supabase
@@ -101,7 +98,7 @@ serve(async (req) => {
     }
 
     // Generate action plan
-    const actionPlan = await generateActionPlan(business, analysisResult, LOVABLE_API_KEY!);
+    const actionPlan = await generateActionPlan(business, analysisResult, LOVABLE_API_KEY);
     
     // Insert action plan
     await supabase
@@ -373,98 +370,4 @@ Format as JSON:
       estimated_effort: "2-3 weeks implementation"
     };
   }
-}
-
-// Generate mock analysis data for development
-function generateMockAnalysis(business: any) {
-  console.log('Using mock analysis data for development');
-  
-  const randomScore = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-  
-  return {
-    seo_score: randomScore(35, 75),
-    design_score: randomScore(40, 80),
-    uiux_score: randomScore(35, 75),
-    branding_score: randomScore(30, 70),
-    seo_details: {
-      strengths: [
-        "Website has fast loading times",
-        "Proper heading structure implemented",
-        "Mobile-friendly design"
-      ],
-      weaknesses: [
-        "Missing meta descriptions on key pages",
-        "Limited internal linking structure",
-        "No XML sitemap detected"
-      ],
-      opportunities: [
-        "Local SEO optimization potential",
-        "Content marketing expansion",
-        "Schema markup implementation"
-      ]
-    },
-    design_details: {
-      strengths: [
-        "Clean and modern aesthetic",
-        "Consistent color scheme",
-        "Professional imagery"
-      ],
-      weaknesses: [
-        "Outdated design elements on some pages",
-        "Inconsistent spacing and margins",
-        "Poor hierarchy in content layout"
-      ],
-      opportunities: [
-        "Modernize call-to-action buttons",
-        "Improve visual hierarchy",
-        "Add micro-interactions for better UX"
-      ]
-    },
-    uiux_details: {
-      strengths: [
-        "Intuitive navigation structure",
-        "Clear primary actions",
-        "Accessible color contrasts"
-      ],
-      weaknesses: [
-        "Confusing checkout flow",
-        "Limited accessibility features",
-        "Poor mobile navigation experience"
-      ],
-      opportunities: [
-        "Implement user testing feedback",
-        "Simplify user journeys",
-        "Add search functionality"
-      ]
-    },
-    branding_details: {
-      strengths: [
-        "Strong brand colors",
-        "Consistent logo usage",
-        "Clear brand message"
-      ],
-      weaknesses: [
-        "Inconsistent tone across pages",
-        "Outdated brand elements",
-        "Limited brand personality"
-      ],
-      opportunities: [
-        "Develop comprehensive brand guidelines",
-        "Refresh visual identity",
-        "Strengthen brand storytelling"
-      ]
-    },
-    issues_identified: [
-      "Missing meta descriptions reducing SEO effectiveness",
-      "Poor mobile navigation hampering user experience",
-      "Inconsistent branding across different touchpoints",
-      "Slow page load times on image-heavy pages"
-    ],
-    recommendations: [
-      "Implement comprehensive meta tag optimization",
-      "Redesign mobile navigation for better usability",
-      "Create and enforce brand guidelines",
-      "Optimize images and implement lazy loading"
-    ]
-  };
 }

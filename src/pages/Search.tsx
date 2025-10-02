@@ -64,7 +64,6 @@ const Search = () => {
   const [showResults, setShowResults] = useState(false);
   const [searchQueryId, setSearchQueryId] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
-  const [resultsPerPage, setResultsPerPage] = useState(50);
   const { toast } = useToast();
 
   const handleSearch = async (loadMore = false) => {
@@ -102,8 +101,7 @@ const Search = () => {
           url: searchType === "url" ? url : undefined,
           industry: industry && industry.trim() !== '' ? industry : undefined,
           radius: 25,
-          offset: currentOffset,
-          limit: resultsPerPage
+          offset: currentOffset
         }
       });
 
@@ -113,7 +111,7 @@ const Search = () => {
         setSearchQueryId(data.search_query_id);
         setShowResults(true);
         if (loadMore) {
-          setOffset(currentOffset + resultsPerPage);
+          setOffset(currentOffset + 50);
         }
         toast({
           title: "Search Complete",
@@ -218,36 +216,21 @@ const Search = () => {
                     </Select>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Select value={industry} onValueChange={setIndustry}>
-                      <SelectTrigger className="text-lg py-3">
-                        <SelectValue placeholder="Industry (optional)" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-            <SelectItem value="">All Industries</SelectItem>
-                        <SelectItem value="restaurant">Restaurants</SelectItem>
-                        <SelectItem value="retail">Retail</SelectItem>
-                        <SelectItem value="services">Professional Services</SelectItem>
-                        <SelectItem value="healthcare">Healthcare</SelectItem>
-                        <SelectItem value="beauty">Beauty & Wellness</SelectItem>
-                        <SelectItem value="automotive">Automotive</SelectItem>
-                        <SelectItem value="real estate">Real Estate</SelectItem>
-                        <SelectItem value="fitness">Fitness & Sports</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Select value={resultsPerPage.toString()} onValueChange={(v) => setResultsPerPage(Number(v))}>
-                      <SelectTrigger className="text-lg py-3">
-                        <SelectValue placeholder="Results per page" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        <SelectItem value="10">10 per page</SelectItem>
-                        <SelectItem value="25">25 per page</SelectItem>
-                        <SelectItem value="50">50 per page</SelectItem>
-                        <SelectItem value="100">100 per page</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select value={industry} onValueChange={setIndustry}>
+                    <SelectTrigger className="text-lg py-3">
+                      <SelectValue placeholder="Industry (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="restaurant">Restaurants</SelectItem>
+                      <SelectItem value="retail">Retail</SelectItem>
+                      <SelectItem value="services">Professional Services</SelectItem>
+                      <SelectItem value="healthcare">Healthcare</SelectItem>
+                      <SelectItem value="beauty">Beauty & Wellness</SelectItem>
+                      <SelectItem value="automotive">Automotive</SelectItem>
+                      <SelectItem value="real estate">Real Estate</SelectItem>
+                      <SelectItem value="fitness">Fitness & Sports</SelectItem>
+                    </SelectContent>
+                  </Select>
                   
                   <p className="text-sm text-muted-foreground">
                     Search for businesses in a specific location, optionally filtered by industry
@@ -285,8 +268,6 @@ const Search = () => {
               searchQueryId={searchQueryId}
               onLoadMore={() => handleSearch(true)}
               isLoadingMore={isSearching}
-              isUrlSearch={searchType === "url"}
-              resultsPerPage={resultsPerPage}
             />
           )}
         </div>

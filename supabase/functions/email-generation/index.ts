@@ -70,43 +70,37 @@ serve(async (req) => {
       actionPlan = data;
     }
 
-    // Generate 3 different email styles
-    const emailVariants = await generateColdEmails(business, actionPlan, sender_name, sender_company, LOVABLE_API_KEY);
+    // Generate personalized email
+    const emailContent = await generateColdEmail(business, actionPlan, sender_name, sender_company, LOVABLE_API_KEY);
 
-    // Save all 3 emails to database
-    const savedEmails = [];
-    for (const emailContent of emailVariants) {
-      const { data: email, error: emailError } = await supabase
-        .from('email_campaigns')
-        .insert({
-          business_id,
-          action_plan_id,
-          subject: emailContent.subject,
-          email_body: emailContent.body,
-          recipient_email: business.email || 'contact@' + business.website_url?.replace(/https?:\/\//, '').split('/')[0],
-          recipient_name: extractContactName(business.name),
-          status: 'draft'
-        })
-        .select()
-        .single();
+    // Save email to database
+    const { data: email, error: emailError } = await supabase
+      .from('email_campaigns')
+      .insert({
+        business_id,
+        action_plan_id,
+        subject: emailContent.subject,
+        email_body: emailContent.body,
+        recipient_email: business.email || 'contact@' + business.website_url?.replace(/https?:\/\//, '').split('/')[0],
+        recipient_name: extractContactName(business.name),
+        status: 'draft'
+      })
+      .select()
+      .single();
 
-      if (emailError) {
-        console.error('Failed to save email:', emailError);
-      } else {
-        savedEmails.push(email);
-      }
+    if (emailError) {
+      throw new Error(`Failed to save email: ${emailError.message}`);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        emails: savedEmails,
-        variants: emailVariants.map((email: any, index: number) => ({
-          style: index === 0 ? 'Professional' : index === 1 ? 'Conversational' : 'Data-Driven',
-          subject: email.subject,
-          body: email.body,
+        email,
+        preview: {
+          subject: emailContent.subject,
+          body: emailContent.body,
           recipient: business.email || 'contact@' + business.website_url?.replace(/https?:\/\//, '').split('/')[0]
-        }))
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -126,11 +120,11 @@ serve(async (req) => {
   }
 });
 
-async function generateColdEmails(business: any, actionPlan: any, senderName: string, senderCompany: string, apiKey: string) {
+async function generateColdEmail(business: any, actionPlan: any, senderName: string, senderCompany: string, apiKey: string) {
   const analysis = business.analysis_results[0];
   
   const emailPrompt = `
-Generate 3 DIFFERENT STYLES of professional cold emails for a business outreach campaign.
+Generate a professional, personalized cold email for a business outreach campaign.
 
 TARGET BUSINESS:
 - Name: ${business.name}
@@ -151,45 +145,22 @@ SENDER:
 - Name: ${senderName}
 - Company: ${senderCompany}
 
-Generate 3 DISTINCT EMAIL STYLES:
+EMAIL REQUIREMENTS:
+1. Professional, conversational tone
+2. Personalized to the specific business
+3. Highlight 2-3 key issues without revealing full analysis
+4. Create urgency without being pushy
+5. Clear call-to-action
+6. Subject line under 60 characters
+7. Email body 150-250 words
 
-1. PROFESSIONAL & FORMAL
-   - Traditional business tone
-   - Focus on expertise and credibility
-   - Formal language and structure
+Format as JSON:
+{
+  "subject": "Compelling subject line",
+  "body": "Professional email body with proper formatting"
+}
 
-2. CONVERSATIONAL & FRIENDLY
-   - Warm, approachable tone
-   - Personal connection
-   - Story-driven approach
-
-3. DATA-DRIVEN & DIRECT
-   - Metrics and numbers focused
-   - ROI-oriented
-   - Concise and to the point
-
-REQUIREMENTS for each:
-- Subject line under 60 characters
-- Email body 150-250 words
-- Highlight 2-3 key issues without revealing full analysis
-- Clear call-to-action
-- Make it feel genuine and valuable, not sales-y
-
-Format as JSON array:
-[
-  {
-    "subject": "Compelling subject line for style 1",
-    "body": "Professional email body with proper formatting"
-  },
-  {
-    "subject": "Compelling subject line for style 2",
-    "body": "Conversational email body with proper formatting"
-  },
-  {
-    "subject": "Compelling subject line for style 3",
-    "body": "Data-driven email body with proper formatting"
-  }
-]
+Make the email feel genuine and valuable, not sales-y.
 `;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -203,7 +174,7 @@ Format as JSON array:
       messages: [
         {
           role: 'system',
-          content: 'You are an expert copywriter specializing in B2B cold email outreach. Create 3 distinct styles of personalized, value-driven emails that generate responses.'
+          content: 'You are an expert copywriter specializing in B2B cold email outreach. Create personalized, value-driven emails that generate responses.'
         },
         {
           role: 'user',
@@ -227,64 +198,26 @@ Format as JSON array:
   } catch (parseError) {
     console.error('Failed to parse email response:', emailText);
     
-    // Fallback: generate 3 basic email templates
+    // Fallback email template
     const businessType = business.industry?.toLowerCase() || 'business';
     const issues = analysis?.issues_identified?.slice(0, 2).join(' and ') || 'website optimization opportunities';
     
-    return [
-      {
-        subject: `${business.name} - Professional Growth Opportunity`,
-        body: `Dear ${extractContactName(business.name)},
+    return {
+      subject: `Quick wins for ${business.name}'s online presence`,
+      body: `Hi there,
 
-I trust this message finds you well. I am reaching out from ${senderCompany} regarding ${business.name}'s digital presence.
+I came across ${business.name} and was impressed by your ${businessType} in ${business.location}. 
 
-Our analysis has identified ${issues} that may be impacting your business performance. We specialize in helping ${businessType} businesses optimize their online presence for maximum ROI.
+While reviewing your online presence, I noticed some ${issues} that could be limiting your growth potential. Many ${businessType} businesses see 30-40% more leads after addressing these specific issues.
 
-I would welcome the opportunity to discuss our findings and share strategic recommendations tailored to ${business.name}.
-
-Would you be available for a brief consultation?
+I'd love to share a quick analysis of what I found and some actionable recommendations that could boost your visibility. Would you be open to a brief 15-minute call this week?
 
 Best regards,
 ${senderName}
-${senderCompany}`
-      },
-      {
-        subject: `Hey ${extractContactName(business.name)} - Spotted something interesting 👀`,
-        body: `Hi there!
-
-I was checking out ${business.name} and really liked what you're doing in ${business.location}! 
-
-I noticed a few things about your online presence - specifically ${issues} - that could be holding you back from reaching even more customers.
-
-I've helped a bunch of ${businessType} businesses tackle similar challenges, and they've seen some pretty amazing results. Would love to chat about what I found and see if we can help you grow too!
-
-Free for a quick call this week?
-
-Cheers,
-${senderName}
-${senderCompany}`
-      },
-      {
-        subject: `${business.name}: 30-40% more leads possible`,
-        body: `Hello,
-
-Quick stats on ${business.name}:
-- Current issues: ${issues}
-- Potential impact: 30-40% increase in qualified leads
-- Timeline: 4-6 weeks to full implementation
-
-${businessType} businesses in ${business.location} that addressed these issues saw:
-• 35% average increase in organic traffic
-• 28% improvement in conversion rates
-• 42% boost in customer engagement
-
-15-minute call to review specific findings?
-
-${senderName}
 ${senderCompany}
-Data-driven growth for ${businessType} businesses`
-      }
-    ];
+
+P.S. I've helped similar businesses in ${business.location} increase their online leads significantly with some simple changes.`
+    };
   }
 }
 

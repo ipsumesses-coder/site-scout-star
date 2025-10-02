@@ -1,10 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Search, BarChart3, Mail, Code } from "lucide-react";
+import { Search, BarChart3, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 export const Header = () => {
   const navigate = useNavigate();
-  const isDevMode = localStorage.getItem("dev_mode") === "true";
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-background/80 border-b border-border">
@@ -35,16 +34,6 @@ export const Header = () => {
             <Search className="h-4 w-4 mr-2" />
             Search
           </Button>
-          {!isDevMode && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate("/dev-login")}
-            >
-              <Code className="h-4 w-4 mr-2" />
-              Dev Mode
-            </Button>
-          )}
           <Button 
             variant="default" 
             size="sm"
