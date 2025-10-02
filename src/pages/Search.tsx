@@ -224,7 +224,7 @@ const Search = () => {
                         <SelectValue placeholder="Industry (optional)" />
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
-                        <SelectItem value="">All Industries</SelectItem>
+            <SelectItem value="">All Industries</SelectItem>
                         <SelectItem value="restaurant">Restaurants</SelectItem>
                         <SelectItem value="retail">Retail</SelectItem>
                         <SelectItem value="services">Professional Services</SelectItem>

@@ -136,10 +136,15 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, isUr
       return;
     }
 
+    const isDevMode = localStorage.getItem("dev_mode") === "true";
+
     setIsAnalyzing(businessId);
     try {
       const { data, error } = await supabase.functions.invoke('ai-analysis', {
-        body: { business_id: businessId }
+        body: { 
+          business_id: businessId,
+          use_mock_data: isDevMode
+        }
       });
 
       if (error) throw error;
@@ -147,7 +152,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, isUr
       if (data.success && !silent) {
         toast({
           title: "Analysis Complete",
-          description: `Analysis completed successfully`
+          description: isDevMode ? "Mock analysis completed (Dev Mode)" : "Analysis completed successfully"
         });
         await loadBusinesses();
       }
