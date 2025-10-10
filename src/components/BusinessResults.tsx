@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square } from "lucide-react";
 import { ScoreBadge } from "./ScoreBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -53,6 +54,8 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
   const [filterBy, setFilterBy] = useState<string>("all");
   const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  const [selectedBusinesses, setSelectedBusinesses] = useState<Set<string>>(new Set());
+  const [batchProcessing, setBatchProcessing] = useState(false);
   const isDemoMode = localStorage.getItem("demo_mode") === "true";
   const { toast } = useToast();
 
@@ -217,6 +220,127 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     }
   };
 
+  const toggleBusinessSelection = (businessId: string) => {
+    const newSelection = new Set(selectedBusinesses);
+    if (newSelection.has(businessId)) {
+      newSelection.delete(businessId);
+    } else {
+      newSelection.add(businessId);
+    }
+    setSelectedBusinesses(newSelection);
+  };
+
+  const selectAll = () => {
+    const analyzedBusinesses = sortedBusinesses.filter(b => b.seo_score !== undefined);
+    setSelectedBusinesses(new Set(analyzedBusinesses.map(b => b.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedBusinesses(new Set());
+  };
+
+  const handleBatchReports = async () => {
+    if (selectedBusinesses.size === 0) return;
+
+    setBatchProcessing(true);
+    const results = [];
+
+    try {
+      for (const businessId of Array.from(selectedBusinesses)) {
+        const { data, error } = await supabase.functions.invoke('detailed-report', {
+          body: { business_id: businessId }
+        });
+
+        if (!error && data.success) {
+          results.push(data.report);
+        }
+      }
+
+      toast({
+        title: "Batch Reports Generated",
+        description: `Successfully generated ${results.length} detailed reports`
+      });
+    } catch (error) {
+      console.error('Batch report generation error:', error);
+      toast({
+        title: "Batch Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate batch reports",
+        variant: "destructive"
+      });
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    if (selectedBusinesses.size === 0) return;
+
+    try {
+      const selectedData = [];
+
+      for (const businessId of Array.from(selectedBusinesses)) {
+        const business = businesses.find(b => b.id === businessId);
+        if (!business) continue;
+
+        // Get analysis results
+        const { data: analysisData } = await supabase
+          .from('analysis_results')
+          .select('*')
+          .eq('business_id', businessId)
+          .single();
+
+        // Get action plans if any
+        const { data: actionPlans } = await supabase
+          .from('action_plans')
+          .select('*')
+          .eq('business_id', businessId);
+
+        // Get email campaigns if any
+        const { data: emails } = await supabase
+          .from('email_campaigns')
+          .select('*')
+          .eq('business_id', businessId);
+
+        selectedData.push({
+          business: {
+            name: business.name,
+            website_url: business.website_url,
+            location: business.location,
+            industry: business.industry,
+            description: business.description
+          },
+          analysis: analysisData,
+          action_plans: actionPlans || [],
+          email_campaigns: emails || []
+        });
+      }
+
+      // Create downloadable JSON file
+      const dataStr = JSON.stringify(selectedData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `business-analysis-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download Complete",
+        description: `Downloaded analysis for ${selectedBusinesses.size} businesses`
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: error instanceof Error ? error.message : "Failed to download data",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getOverallScore = (business: Business) => {
     const scores = [
       business.seo_score,
@@ -294,6 +418,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
           <h2 className="text-2xl font-bold">Search Results</h2>
           <p className="text-muted-foreground">
             Found {sortedBusinesses.length} businesses
+            {selectedBusinesses.size > 0 && ` • ${selectedBusinesses.size} selected`}
           </p>
         </div>
         
@@ -325,6 +450,64 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
         </div>
       </div>
 
+      {selectedBusinesses.size > 0 && (
+        <Card className="bg-primary/5 border-primary">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <Badge variant="secondary" className="text-lg px-3 py-1">
+                  {selectedBusinesses.size} Selected
+                </Badge>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={selectAll}
+                  >
+                    <CheckSquare className="h-4 w-4 mr-1" />
+                    Select All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={deselectAll}
+                  >
+                    <Square className="h-4 w-4 mr-1" />
+                    Deselect All
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleBatchReports}
+                  disabled={batchProcessing}
+                  variant="default"
+                >
+                  {batchProcessing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Generate Reports ({selectedBusinesses.size})
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleDownloadSelected}
+                  variant="outline"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download All
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {sortedBusinesses.length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-muted-foreground">No businesses found matching your criteria.</p>
@@ -335,11 +518,23 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
             {sortedBusinesses.map((business) => {
               const overallScore = getOverallScore(business);
               const hasAnalysis = business.seo_score !== undefined;
+              const isSelected = selectedBusinesses.has(business.id);
               
               return (
-                <Card key={business.id} className="hover:shadow-lg transition-shadow">
+                <Card 
+                  key={business.id} 
+                  className={`hover:shadow-lg transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                >
                   <CardHeader>
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-4">
+                      {hasAnalysis && (
+                        <div className="pt-1">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleBusinessSelection(business.id)}
+                          />
+                        </div>
+                      )}
                       <div className="flex-1">
                         <CardTitle className="text-2xl mb-2">{business.name}</CardTitle>
                         <div className="flex flex-wrap gap-2 mb-3">
