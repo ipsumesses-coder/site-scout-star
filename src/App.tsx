@@ -6,7 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Search from "./pages/Search";
 import Dashboard from "./pages/Dashboard";
+import DemoMode from "./pages/DemoMode";
 import NotFound from "./pages/NotFound";
+import { DemoModeIndicator } from "@/components/DemoModeIndicator";
 
 const queryClient = new QueryClient();
 
@@ -15,11 +17,13 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <DemoModeIndicator />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/search" element={<Search />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/demo" element={<DemoMode />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

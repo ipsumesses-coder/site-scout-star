@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Search, BarChart3, Mail } from "lucide-react";
+import { Search, BarChart3, Mail, TestTube } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 export const Header = () => {
   const navigate = useNavigate();
+  const isDemoMode = localStorage.getItem("demo_mode") === "true";
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-background/80 border-b border-border">
@@ -34,6 +35,16 @@ export const Header = () => {
             <Search className="h-4 w-4 mr-2" />
             Search
           </Button>
+          {!isDemoMode && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate("/demo")}
+            >
+              <TestTube className="h-4 w-4 mr-2" />
+              Demo
+            </Button>
+          )}
           <Button 
             variant="default" 
             size="sm"

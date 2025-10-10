@@ -23,6 +23,7 @@ interface BusinessResultsProps {
   searchQueryId: string;
   onLoadMore: () => void;
   isLoadingMore: boolean;
+  analysisLimit?: number;
 }
 
 interface Business {
@@ -44,7 +45,7 @@ interface Business {
   issues?: string[];
 }
 
-export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: BusinessResultsProps) => {
+export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, analysisLimit = 3 }: BusinessResultsProps) => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
   const [filterBy, setFilterBy] = useState<string>("all");
   const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  const isDemoMode = localStorage.getItem("demo_mode") === "true";
   const { toast } = useToast();
 
   useEffect(() => {
@@ -99,9 +101,9 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
 
         setBusinesses(mergedData);
         
-        // Auto-analyze businesses without analysis
+        // Auto-analyze businesses without analysis (limited by analysisLimit)
         const unanalyzed = mergedData.filter(b => !b.seo_score && b.website_url);
-        for (const business of unanalyzed.slice(0, 5)) {
+        for (const business of unanalyzed.slice(0, analysisLimit)) {
           handleAnalyze(business.id, business.website_url, true);
         }
       } else {
@@ -134,7 +136,10 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore }: Bu
     setIsAnalyzing(businessId);
     try {
       const { data, error } = await supabase.functions.invoke('ai-analysis', {
-        body: { business_id: businessId }
+        body: { 
+          business_id: businessId,
+          use_mock_data: isDemoMode
+        }
       });
 
       if (error) throw error;

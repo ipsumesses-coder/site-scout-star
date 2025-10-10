@@ -9,6 +9,7 @@ const corsHeaders = {
 interface AnalysisRequest {
   business_id: string;
   force_reanalysis?: boolean;
+  use_mock_data?: boolean;
 }
 
 serve(async (req) => {
@@ -22,10 +23,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { business_id, force_reanalysis = false }: AnalysisRequest = await req.json();
+    const { business_id, force_reanalysis = false, use_mock_data = false }: AnalysisRequest = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
+    if (!use_mock_data && !LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
@@ -71,8 +72,10 @@ serve(async (req) => {
       .update({ status: 'analyzing', last_analyzed: new Date().toISOString() })
       .eq('id', business_id);
 
-    // Perform AI analysis
-    const analysisResult = await performAIAnalysis(business, LOVABLE_API_KEY);
+    // Perform AI analysis (mock if in demo mode)
+    const analysisResult = use_mock_data 
+      ? generateMockAnalysis(business)
+      : await performAIAnalysis(business, LOVABLE_API_KEY!);
 
     // Insert analysis results
     const { data: analysis, error: analysisError } = await supabase
@@ -97,8 +100,10 @@ serve(async (req) => {
       throw new Error(`Failed to save analysis: ${analysisError.message}`);
     }
 
-    // Generate action plan
-    const actionPlan = await generateActionPlan(business, analysisResult, LOVABLE_API_KEY);
+    // Generate action plan (mock if in demo mode)
+    const actionPlan = use_mock_data
+      ? generateMockActionPlan(business, analysisResult)
+      : await generateActionPlan(business, analysisResult, LOVABLE_API_KEY!);
     
     // Insert action plan
     await supabase
@@ -370,4 +375,130 @@ Format as JSON:
       estimated_effort: "2-3 weeks implementation"
     };
   }
+}
+
+function generateMockAnalysis(business: any) {
+  console.log('Using mock data for analysis (Demo Mode)');
+  
+  return {
+    seo_score: Math.floor(Math.random() * 40) + 35,
+    design_score: Math.floor(Math.random() * 40) + 45,
+    uiux_score: Math.floor(Math.random() * 40) + 40,
+    branding_score: Math.floor(Math.random() * 50) + 30,
+    seo_details: {
+      strengths: [
+        "Clear page titles present",
+        "Website loads in reasonable time"
+      ],
+      weaknesses: [
+        "Missing meta descriptions on key pages",
+        "Limited keyword optimization",
+        "No structured data implementation"
+      ],
+      opportunities: [
+        "Implement local SEO strategy",
+        "Add blog for content marketing",
+        "Optimize images with alt text"
+      ]
+    },
+    design_details: {
+      strengths: [
+        "Clean and professional layout",
+        "Good use of whitespace"
+      ],
+      weaknesses: [
+        "Limited mobile responsiveness",
+        "Outdated visual design",
+        "Inconsistent button styles"
+      ],
+      opportunities: [
+        "Modern redesign with current trends",
+        "Improve navigation structure",
+        "Add professional imagery"
+      ]
+    },
+    uiux_details: {
+      strengths: [
+        "Basic functionality works well",
+        "Clear call-to-action buttons"
+      ],
+      weaknesses: [
+        "Confusing navigation menu",
+        "Poor accessibility compliance",
+        "Slow page transitions"
+      ],
+      opportunities: [
+        "Conduct user testing sessions",
+        "Simplify user flows",
+        "Improve accessibility features"
+      ]
+    },
+    branding_details: {
+      strengths: [
+        "Consistent color palette",
+        "Recognizable logo"
+      ],
+      weaknesses: [
+        "Inconsistent messaging across pages",
+        "Low-quality logo reproduction",
+        "Limited brand personality"
+      ],
+      opportunities: [
+        "Develop comprehensive brand guidelines",
+        "Strengthen social media presence",
+        "Create consistent brand voice"
+      ]
+    },
+    issues_identified: [
+      "Missing critical meta descriptions",
+      "Poor mobile responsiveness affecting user experience",
+      "Inconsistent branding across digital platforms",
+      "Limited accessibility features"
+    ],
+    recommendations: [
+      "Prioritize mobile-first responsive design",
+      "Implement comprehensive SEO meta tags",
+      "Create and document brand guidelines",
+      "Improve website accessibility (WCAG compliance)"
+    ]
+  };
+}
+
+function generateMockActionPlan(business: any, analysis: any) {
+  console.log('Using mock data for action plan (Demo Mode)');
+  
+  return {
+    priority: "high",
+    category: "Digital Transformation",
+    title: `${business.name} - Website Optimization Plan`,
+    description: "Comprehensive digital improvement strategy to enhance online presence and user engagement",
+    tasks: [
+      {
+        task: "Mobile Responsive Redesign",
+        description: "Implement fully responsive design across all pages with mobile-first approach",
+        estimated_hours: 12,
+        priority: "high"
+      },
+      {
+        task: "SEO Foundation Setup",
+        description: "Add meta tags, optimize content, implement structured data",
+        estimated_hours: 8,
+        priority: "high"
+      },
+      {
+        task: "Brand Consistency Review",
+        description: "Audit and standardize branding elements across all pages",
+        estimated_hours: 6,
+        priority: "medium"
+      },
+      {
+        task: "Accessibility Improvements",
+        description: "Implement WCAG 2.1 AA compliance standards",
+        estimated_hours: 10,
+        priority: "medium"
+      }
+    ],
+    estimated_impact: "35-50% increase in mobile engagement, 40% improvement in search visibility",
+    estimated_effort: "3-4 weeks with dedicated resources"
+  };
 }
