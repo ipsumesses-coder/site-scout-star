@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Header } from "@/components/Header";
 import { SearchFilters } from "@/components/SearchFilters";
 import { BusinessResults } from "@/components/BusinessResults";
@@ -66,9 +67,12 @@ const Search = () => {
   const [showResults, setShowResults] = useState(false);
   const [searchQueryId, setSearchQueryId] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
+  const [showMaxResultsDialog, setShowMaxResultsDialog] = useState(false);
+  const [maxResults, setMaxResults] = useState<number>(5);
+  const [pendingSearch, setPendingSearch] = useState<boolean>(false);
   const { toast } = useToast();
 
-  const handleSearch = async (loadMore = false) => {
+  const initiateSearch = () => {
     if (searchType === "url" && !url.trim()) {
       toast({
         title: "URL Required",
@@ -87,6 +91,12 @@ const Search = () => {
       return;
     }
 
+    // Show max results dialog before searching
+    setShowMaxResultsDialog(true);
+    setPendingSearch(true);
+  };
+
+  const handleSearch = async (loadMore = false) => {
     const currentOffset = loadMore ? offset : 0;
     if (!loadMore) {
       setOffset(0);
@@ -103,7 +113,8 @@ const Search = () => {
           url: searchType === "url" ? url : undefined,
           industry: industry && industry.trim() !== '' ? industry : undefined,
           radius: 25,
-          offset: currentOffset
+          offset: currentOffset,
+          max_results: loadMore ? undefined : maxResults
         }
       });
 
@@ -117,7 +128,7 @@ const Search = () => {
         }
         toast({
           title: "Search Complete",
-          description: `Found ${data.businesses_found} businesses`,
+          description: `Found ${data.businesses_found} businesses${data.from_cache ? ' (cached)' : ''}`,
         });
       } else {
         throw new Error(data.error || 'Search failed');
@@ -132,6 +143,12 @@ const Search = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const confirmMaxResults = () => {
+    setShowMaxResultsDialog(false);
+    setPendingSearch(false);
+    handleSearch(false);
   };
 
   return (
@@ -259,7 +276,7 @@ const Search = () => {
               </div>
 
               <Button 
-                onClick={() => handleSearch(false)}
+                onClick={initiateSearch}
                 disabled={isSearching}
                 size="lg"
                 className="w-full btn-hero"
@@ -293,6 +310,44 @@ const Search = () => {
           )}
         </div>
       </div>
+
+      {/* Max Results Dialog */}
+      <Dialog open={showMaxResultsDialog} onOpenChange={setShowMaxResultsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Search Limit</DialogTitle>
+            <DialogDescription>
+              Limit the number of businesses returned from Google Places API to save costs.
+              Results are cached for 30 days.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="max-results">Max Results:</Label>
+              <Input
+                id="max-results"
+                type="number"
+                min={1}
+                max={50}
+                value={maxResults}
+                onChange={(e) => setMaxResults(Math.max(1, Math.min(50, parseInt(e.target.value) || 5)))}
+                className="text-lg"
+              />
+              <p className="text-sm text-muted-foreground">
+                Set between 1-50 businesses. Lower numbers save API tokens.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMaxResultsDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmMaxResults}>
+              Continue Search
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

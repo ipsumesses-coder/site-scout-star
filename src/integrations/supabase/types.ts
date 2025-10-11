@@ -247,6 +247,39 @@ export type Database = {
           },
         ]
       }
+      places_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          id: string
+          industry: string | null
+          location: string
+          radius: number
+          results: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          industry?: string | null
+          location: string
+          radius: number
+          results: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          industry?: string | null
+          location?: string
+          radius?: number
+          results?: Json
+        }
+        Relationships: []
+      }
       search_queries: {
         Row: {
           completed_at: string | null
@@ -285,7 +318,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      clean_expired_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -13,6 +13,7 @@ interface SearchRequest {
   url?: string;
   radius?: number;
   offset?: number;
+  max_results?: number;
 }
 
 serve(async (req) => {
@@ -26,9 +27,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { query_type, location, industry, url, radius = 25, offset = 0 }: SearchRequest = await req.json();
+    const { query_type, location, industry, url, radius = 25, offset = 0, max_results = 5 }: SearchRequest = await req.json();
 
-    console.log('Business discovery request:', { query_type, location, industry, url, radius });
+    console.log('Business discovery request:', { query_type, location, industry, url, radius, max_results });
 
     // Create search query record
     const { data: searchQuery, error: searchError } = await supabase
@@ -46,10 +47,26 @@ serve(async (req) => {
     }
 
     let discoveredBusinesses: any[] = [];
+    let fromCache = false;
 
     if (query_type === 'location' && location) {
-      // Simulate business discovery using AI and web scraping
-      discoveredBusinesses = await discoverBusinessesByLocation(location, industry, radius, offset);
+      // Check cache first
+      const cacheKey = `${location}:${industry || 'all'}:${radius}`;
+      const { data: cached } = await supabase
+        .from('places_cache')
+        .select('results, expires_at')
+        .eq('cache_key', cacheKey)
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+      if (cached && cached.results) {
+        console.log('Using cached results');
+        discoveredBusinesses = cached.results.slice(offset, offset + max_results);
+        fromCache = true;
+      } else {
+        // Fetch from Google Places API with max_results limit
+        discoveredBusinesses = await discoverBusinessesByLocation(location, industry, radius, offset, max_results, supabase, cacheKey);
+      }
     } else if (query_type === 'url' && url) {
       // Analyze specific business from URL
       discoveredBusinesses = await analyzeBusinessFromUrl(url);
@@ -93,7 +110,8 @@ serve(async (req) => {
         success: true,
         search_query_id: searchQuery.id,
         businesses_found: businesses.length,
-        businesses
+        businesses,
+        from_cache: fromCache
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -114,13 +132,21 @@ serve(async (req) => {
 });
 
 // Google Places API business discovery function
-async function discoverBusinessesByLocation(location: string, industry?: string, radius = 25, offset = 0) {
+async function discoverBusinessesByLocation(
+  location: string, 
+  industry: string | undefined, 
+  radius: number, 
+  offset: number, 
+  maxResults: number,
+  supabase: any,
+  cacheKey: string
+) {
   const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
   if (!apiKey) {
     throw new Error('Google Places API key not configured');
   }
 
-  console.log(`Discovering businesses in ${location}, industry: ${industry}, radius: ${radius}km`);
+  console.log(`Discovering businesses in ${location}, industry: ${industry}, radius: ${radius}km, max: ${maxResults}`);
 
   try {
     // First, geocode the location to get coordinates
@@ -152,12 +178,15 @@ async function discoverBusinessesByLocation(location: string, industry?: string,
     }
 
     const businesses = [];
+    let count = 0;
 
-    // Process each place to get detailed information with pagination
-    const startIndex = offset;
-    const endIndex = Math.min(offset + 50, placesData.results.length);
-    
-    for (const place of placesData.results.slice(startIndex, endIndex)) {
+    // Process places with max_results limit - stop early when we hit the limit
+    for (const place of placesData.results) {
+      if (count >= maxResults) {
+        console.log(`Reached max results limit: ${maxResults}`);
+        break;
+      }
+
       try {
         // Get place details including website
         const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,website,formatted_phone_number,types&key=${apiKey}`;
@@ -173,14 +202,30 @@ async function discoverBusinessesByLocation(location: string, industry?: string,
             location: details.formatted_address || location,
             industry: industry || (details.types && details.types[0] ? details.types[0].replace(/_/g, ' ') : 'General'),
             phone: details.formatted_phone_number || null,
-            email: null, // Email not available from Google Places
+            email: null,
             description: `${details.name} located in ${details.formatted_address || location}`,
-            social_media: {} // Social media not directly available from Google Places
+            social_media: {}
           });
+          count++;
         }
       } catch (error) {
         console.error('Error fetching place details:', error);
       }
+    }
+
+    // Cache the results for 30 days
+    if (businesses.length > 0) {
+      await supabase.from('places_cache').upsert({
+        cache_key: cacheKey,
+        location,
+        industry: industry || null,
+        radius,
+        results: businesses,
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      }, {
+        onConflict: 'cache_key'
+      });
+      console.log('Cached results for 30 days');
     }
 
     console.log(`Found ${businesses.length} businesses`);
