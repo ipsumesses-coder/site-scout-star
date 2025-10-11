@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.detailed-report]
 verify_jwt = false
+
+[functions.detailed-proposal]
+verify_jwt = false

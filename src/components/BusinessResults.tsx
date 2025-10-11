@@ -54,8 +54,12 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
   const [filterBy, setFilterBy] = useState<string>("all");
   const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  const [generatingProposal, setGeneratingProposal] = useState<string | null>(null);
   const [selectedBusinesses, setSelectedBusinesses] = useState<Set<string>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
+  const [reports, setReports] = useState<Map<string, any>>(new Map());
+  const [proposals, setProposals] = useState<Map<string, any>>(new Map());
+  const [emails, setEmails] = useState<Map<string, any>>(new Map());
   const isDemoMode = localStorage.getItem("demo_mode") === "true";
   const { toast } = useToast();
 
@@ -178,6 +182,10 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
       if (error) throw error;
 
       if (data.success) {
+        const newReports = new Map(reports);
+        newReports.set(businessId, data.report);
+        setReports(newReports);
+        
         console.log('Detailed Report:', data.report);
         toast({
           title: "Report Generated",
@@ -196,6 +204,51 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     }
   };
 
+  const handleGenerateProposal = async (businessId: string) => {
+    const report = reports.get(businessId);
+    if (!report) {
+      toast({
+        title: "No Report Found",
+        description: "Please generate a detailed report first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setGeneratingProposal(businessId);
+    try {
+      const { data, error } = await supabase.functions.invoke('detailed-proposal', {
+        body: { 
+          business_id: businessId,
+          report_data: report
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        const newProposals = new Map(proposals);
+        newProposals.set(businessId, data.proposal);
+        setProposals(newProposals);
+        
+        console.log('Detailed Proposal:', data.proposal);
+        toast({
+          title: "Proposal Generated",
+          description: "Comprehensive correction proposal has been generated successfully"
+        });
+      }
+    } catch (error) {
+      console.error('Proposal generation error:', error);
+      toast({
+        title: "Proposal Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate proposal",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingProposal(null);
+    }
+  };
+
   const handleGenerateEmail = async (businessId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('email-generation', {
@@ -205,6 +258,10 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
       if (error) throw error;
 
       if (data.success) {
+        const newEmails = new Map(emails);
+        newEmails.set(businessId, data.preview);
+        setEmails(newEmails);
+        
         toast({
           title: "Email Generated",
           description: "Cold email has been generated successfully"
@@ -218,6 +275,57 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
         variant: "destructive"
       });
     }
+  };
+
+  const downloadReport = (businessId: string) => {
+    const report = reports.get(businessId);
+    const business = businesses.find(b => b.id === businessId);
+    if (!report || !business) return;
+
+    const dataStr = JSON.stringify(report, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${business.name.replace(/\s+/g, '-')}-detailed-report.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadProposal = (businessId: string) => {
+    const proposal = proposals.get(businessId);
+    const business = businesses.find(b => b.id === businessId);
+    if (!proposal || !business) return;
+
+    const dataStr = JSON.stringify(proposal, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${business.name.replace(/\s+/g, '-')}-correction-proposal.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadEmail = (businessId: string) => {
+    const email = emails.get(businessId);
+    const business = businesses.find(b => b.id === businessId);
+    if (!email || !business) return;
+
+    const emailText = `Subject: ${email.subject}\n\nTo: ${email.recipient}\n\n${email.body}`;
+    const dataBlob = new Blob([emailText], { type: 'text/plain' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${business.name.replace(/\s+/g, '-')}-email.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const toggleBusinessSelection = (businessId: string) => {
@@ -716,33 +824,88 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
                           </div>
                         )}
 
-                        <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                          <Button 
-                            variant="default" 
-                            className="flex-1"
-                            onClick={() => handleGenerateReport(business.id)}
-                            disabled={generatingReport === business.id}
-                          >
-                            {generatingReport === business.id ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="h-4 w-4 mr-2" />
-                                Generate Detailed Report
-                              </>
+                        <div className="space-y-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Button 
+                              variant="default" 
+                              className="flex-1"
+                              onClick={() => handleGenerateReport(business.id)}
+                              disabled={generatingReport === business.id}
+                            >
+                              {generatingReport === business.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Generate Detailed Report
+                                </>
+                              )}
+                            </Button>
+                            {reports.has(business.id) && (
+                              <Button 
+                                variant="outline" 
+                                onClick={() => downloadReport(business.id)}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
                             )}
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            className="flex-1"
-                            onClick={() => handleGenerateEmail(business.id)}
-                          >
-                            <Mail className="h-4 w-4 mr-2" />
-                            Generate Email
-                          </Button>
+                          </div>
+
+                          {reports.has(business.id) && (
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Button 
+                                variant="secondary" 
+                                className="flex-1"
+                                onClick={() => handleGenerateProposal(business.id)}
+                                disabled={generatingProposal === business.id}
+                              >
+                                {generatingProposal === business.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Generate Correction Proposal
+                                  </>
+                                )}
+                              </Button>
+                              {proposals.has(business.id) && (
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => downloadProposal(business.id)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Button 
+                              variant="outline" 
+                              className="flex-1"
+                              onClick={() => handleGenerateEmail(business.id)}
+                            >
+                              <Mail className="h-4 w-4 mr-2" />
+                              Generate Email
+                            </Button>
+                            {emails.has(business.id) && (
+                              <Button 
+                                variant="outline" 
+                                onClick={() => downloadEmail(business.id)}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </>
                     ) : (
