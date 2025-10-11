@@ -62,7 +62,6 @@ const Search = () => {
   const [country, setCountry] = useState<"UK" | "US">("US");
   const [location, setLocation] = useState("");
   const [industry, setIndustry] = useState("");
-  const [analysisLimit, setAnalysisLimit] = useState<number>(3);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [searchQueryId, setSearchQueryId] = useState<string | null>(null);
@@ -257,25 +256,7 @@ const Search = () => {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="analysisLimit">Auto-Analysis Limit (Save Tokens)</Label>
-                <Select value={analysisLimit.toString()} onValueChange={(value) => setAnalysisLimit(parseInt(value))}>
-                  <SelectTrigger id="analysisLimit" className="text-lg py-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="1">1 business</SelectItem>
-                    <SelectItem value="3">3 businesses</SelectItem>
-                    <SelectItem value="5">5 businesses</SelectItem>
-                    <SelectItem value="10">10 businesses</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  Limit automatic AI analysis to save API tokens
-                </p>
-              </div>
-
-              <Button 
+              <Button
                 onClick={initiateSearch}
                 disabled={isSearching}
                 size="lg"
@@ -305,7 +286,7 @@ const Search = () => {
               searchQueryId={searchQueryId}
               onLoadMore={() => handleSearch(true)}
               isLoadingMore={isSearching}
-              analysisLimit={analysisLimit}
+              analysisLimit={maxResults}
             />
           )}
         </div>
@@ -315,9 +296,9 @@ const Search = () => {
       <Dialog open={showMaxResultsDialog} onOpenChange={setShowMaxResultsDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Set Search Limit</DialogTitle>
+            <DialogTitle>Set Search & Analysis Limit</DialogTitle>
             <DialogDescription>
-              Limit the number of businesses returned from Google Places API to save costs.
+              Limit both the number of businesses fetched from Google Places AND automatically analyzed to save tokens.
               Results are cached for 30 days.
             </DialogDescription>
           </DialogHeader>
