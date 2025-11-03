@@ -90,7 +90,13 @@ const Search = () => {
       return;
     }
 
-    // Show max results dialog before searching
+    // URL search: analyze directly without asking for max results
+    if (searchType === "url") {
+      handleSearch(false);
+      return;
+    }
+
+    // Location search: show max results dialog
     setShowMaxResultsDialog(true);
     setPendingSearch(true);
   };
@@ -113,7 +119,7 @@ const Search = () => {
           industry: industry && industry.trim() !== '' ? industry : undefined,
           radius: 25,
           offset: currentOffset,
-          max_results: loadMore ? undefined : maxResults
+          max_results: searchType === "url" ? 1 : (loadMore ? undefined : maxResults)
         }
       });
 
