@@ -150,6 +150,7 @@ export type Database = {
           location: string | null
           name: string
           phone: string | null
+          search_query_id: string | null
           social_media: Json | null
           status: string | null
           website_url: string | null
@@ -164,6 +165,7 @@ export type Database = {
           location?: string | null
           name: string
           phone?: string | null
+          search_query_id?: string | null
           social_media?: Json | null
           status?: string | null
           website_url?: string | null
@@ -178,11 +180,20 @@ export type Database = {
           location?: string | null
           name?: string
           phone?: string | null
+          search_query_id?: string | null
           social_media?: Json | null
           status?: string | null
           website_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "businesses_search_query_id_fkey"
+            columns: ["search_query_id"]
+            isOneToOne: false
+            referencedRelation: "search_queries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_campaigns: {
         Row: {
@@ -318,10 +329,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      clean_expired_cache: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      clean_expired_cache: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

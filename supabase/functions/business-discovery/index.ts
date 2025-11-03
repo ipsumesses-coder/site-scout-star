@@ -72,7 +72,7 @@ serve(async (req) => {
       discoveredBusinesses = await analyzeBusinessFromUrl(url);
     }
 
-    // Insert discovered businesses into database
+    // Insert discovered businesses into database with search_query_id
     const businessInserts = discoveredBusinesses.map(business => ({
       name: business.name,
       website_url: business.website_url,
@@ -82,7 +82,8 @@ serve(async (req) => {
       email: business.email,
       description: business.description,
       social_media: business.social_media || {},
-      status: 'discovered'
+      status: 'discovered',
+      search_query_id: searchQuery.id
     }));
 
     const { data: businesses, error: businessError } = await supabase

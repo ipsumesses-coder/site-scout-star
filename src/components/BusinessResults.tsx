@@ -71,11 +71,12 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     try {
       setIsLoading(true);
       
+      // Filter businesses by the current search query
       const { data: businessData, error: businessError } = await supabase
         .from('businesses')
         .select('*')
-        .order('discovered_at', { ascending: false })
-        .limit(100);
+        .eq('search_query_id', searchQueryId)
+        .order('discovered_at', { ascending: false });
 
       if (businessError) throw businessError;
 
