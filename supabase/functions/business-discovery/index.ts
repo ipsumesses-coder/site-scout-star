@@ -266,7 +266,7 @@ async function analyzeBusinessFromUrl(url: string) {
       .slice(0, 8000); // Limit to first 8000 chars for AI analysis
     
     // Use Lovable AI to extract business information
-    const aiResponse = await fetch('https://api.lovable.app/v1/ai/chat/completions', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
