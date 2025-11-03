@@ -237,21 +237,115 @@ async function discoverBusinessesByLocation(
   }
 }
 
-// Analyze specific business from URL
+// Analyze specific business from URL by scraping and analyzing website content
 async function analyzeBusinessFromUrl(url: string) {
   console.log(`Analyzing business from URL: ${url}`);
   
-  // Extract domain from URL
-  const domain = new URL(url).hostname.replace('www.', '');
-  
-  return [{
-    name: domain,
-    website_url: url,
-    location: "Unknown",
-    industry: "Unknown",
-    phone: null,
-    email: null,
-    description: `Business at ${url}`,
-    social_media: {}
-  }];
+  try {
+    // Fetch the website HTML content
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; BusinessAnalyzer/1.0)'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch website: ${response.status}`);
+    }
+    
+    const html = await response.text();
+    
+    // Extract text content from HTML (remove scripts, styles, etc.)
+    const textContent = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 8000); // Limit to first 8000 chars for AI analysis
+    
+    // Use Lovable AI to extract business information
+    const aiResponse = await fetch('https://api.lovable.app/v1/ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a business information extraction expert. Extract structured business information from website content and return it as valid JSON only, with no additional text or markdown.'
+          },
+          {
+            role: 'user',
+            content: `Extract business information from this website content. Return ONLY valid JSON with this exact structure:
+{
+  "name": "business name",
+  "location": "business address or location",
+  "industry": "industry category",
+  "phone": "phone number if found, else null",
+  "email": "email if found, else null",
+  "description": "brief 1-2 sentence description of what the business does",
+  "social_media": {
+    "facebook": "url if found",
+    "instagram": "url if found",
+    "twitter": "url if found",
+    "linkedin": "url if found"
+  }
+}
+
+Website URL: ${url}
+Website content: ${textContent}`
+          }
+        ]
+      })
+    });
+    
+    if (!aiResponse.ok) {
+      throw new Error(`AI analysis failed: ${aiResponse.status}`);
+    }
+    
+    const aiData = await aiResponse.json();
+    const aiContent = aiData.choices[0].message.content;
+    
+    // Parse the AI response (remove markdown code blocks if present)
+    let businessInfo;
+    try {
+      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+      businessInfo = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(aiContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', aiContent);
+      throw new Error('AI returned invalid JSON');
+    }
+    
+    // Return the analyzed business with the original URL
+    return [{
+      name: businessInfo.name || new URL(url).hostname.replace('www.', ''),
+      website_url: url,
+      location: businessInfo.location || "Unknown",
+      industry: businessInfo.industry || "Unknown",
+      phone: businessInfo.phone || null,
+      email: businessInfo.email || null,
+      description: businessInfo.description || `Business at ${url}`,
+      social_media: businessInfo.social_media || {}
+    }];
+    
+  } catch (error) {
+    console.error('Error analyzing website:', error);
+    
+    // Fallback: return basic info if analysis fails
+    const domain = new URL(url).hostname.replace('www.', '');
+    return [{
+      name: domain,
+      website_url: url,
+      location: "Could not analyze",
+      industry: "Unknown",
+      phone: null,
+      email: null,
+      description: `Analysis failed for ${url}. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      social_media: {}
+    }];
+  }
 }
