@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square } from "lucide-react";
+import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square, RefreshCw } from "lucide-react";
 import { ScoreBadge } from "./ScoreBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -129,7 +129,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     }
   };
 
-  const handleAnalyze = async (businessId: string, websiteUrl: string | null, silent = false) => {
+  const handleAnalyze = async (businessId: string, websiteUrl: string | null, silent = false, forceReanalysis = false) => {
     if (!websiteUrl) {
       if (!silent) {
         toast({
@@ -146,7 +146,8 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
       const { data, error } = await supabase.functions.invoke('ai-analysis', {
         body: { 
           business_id: businessId,
-          use_mock_data: isDemoMode
+          use_mock_data: isDemoMode,
+          force_reanalysis: forceReanalysis
         }
       });
 
@@ -154,7 +155,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
 
       if (data.success && !silent) {
         toast({
-          title: "Analysis Complete",
+          title: forceReanalysis ? "Analysis Regenerated" : "Analysis Complete",
           description: `Analysis completed successfully`
         });
         await loadBusinesses();
@@ -827,6 +828,24 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
 
                         <div className="space-y-2">
                           <div className="flex flex-col sm:flex-row gap-2">
+                            <Button 
+                              variant="outline" 
+                              className="flex-1"
+                              onClick={() => handleAnalyze(business.id, business.website_url, false, true)}
+                              disabled={isAnalyzing === business.id}
+                            >
+                              {isAnalyzing === business.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Regenerating...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  Regenerate Analysis
+                                </>
+                              )}
+                            </Button>
                             <Button 
                               variant="default" 
                               className="flex-1"
