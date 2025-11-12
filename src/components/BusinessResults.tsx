@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square, RefreshCw } from "lucide-react";
+import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square, RefreshCw, FileDown } from "lucide-react";
 import { ScoreBadge } from "./ScoreBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -290,6 +290,60 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     const link = document.createElement('a');
     link.href = url;
     link.download = `${business.name.replace(/\s+/g, '-')}-detailed-report.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadReadableReport = (businessId: string) => {
+    const report = reports.get(businessId);
+    const business = businesses.find(b => b.id === businessId);
+    if (!report || !business) return;
+
+    // Format the JSON report into a readable document
+    let readableText = `DETAILED BUSINESS ANALYSIS REPORT\n`;
+    readableText += `${'='.repeat(60)}\n\n`;
+    readableText += `Business: ${business.name}\n`;
+    readableText += `Website: ${business.website_url || 'N/A'}\n`;
+    readableText += `Date: ${new Date().toLocaleDateString()}\n\n`;
+    
+    if (report.executive_summary) {
+      readableText += `EXECUTIVE SUMMARY\n${'-'.repeat(60)}\n${report.executive_summary}\n\n`;
+    }
+
+    if (report.sections && Array.isArray(report.sections)) {
+      report.sections.forEach((section: any) => {
+        readableText += `${section.title?.toUpperCase() || 'SECTION'}\n${'-'.repeat(60)}\n`;
+        readableText += `${section.content || ''}\n\n`;
+        
+        if (section.findings && Array.isArray(section.findings)) {
+          readableText += `Key Findings:\n`;
+          section.findings.forEach((finding: string, idx: number) => {
+            readableText += `  ${idx + 1}. ${finding}\n`;
+          });
+          readableText += `\n`;
+        }
+        
+        if (section.recommendations && Array.isArray(section.recommendations)) {
+          readableText += `Recommendations:\n`;
+          section.recommendations.forEach((rec: string, idx: number) => {
+            readableText += `  ${idx + 1}. ${rec}\n`;
+          });
+          readableText += `\n`;
+        }
+      });
+    }
+
+    if (report.conclusion) {
+      readableText += `CONCLUSION\n${'-'.repeat(60)}\n${report.conclusion}\n\n`;
+    }
+
+    const dataBlob = new Blob([readableText], { type: 'text/plain' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${business.name.replace(/\s+/g, '-')}-detailed-report.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -865,13 +919,22 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
                               )}
                             </Button>
                             {reports.has(business.id) && (
-                              <Button 
-                                variant="outline" 
-                                onClick={() => downloadReport(business.id)}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </Button>
+                              <>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => downloadReport(business.id)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  JSON
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => downloadReadableReport(business.id)}
+                                >
+                                  <FileDown className="h-4 w-4 mr-2" />
+                                  Document
+                                </Button>
+                              </>
                             )}
                           </div>
 
