@@ -70,6 +70,7 @@ const Search = () => {
   const [offset, setOffset] = useState(0);
   const [showMaxResultsDialog, setShowMaxResultsDialog] = useState(false);
   const [maxResults, setMaxResults] = useState<number>(5);
+  const [loadMoreAmount, setLoadMoreAmount] = useState<number>(10);
   const [pendingSearch, setPendingSearch] = useState<boolean>(false);
   const { toast } = useToast();
 
@@ -131,7 +132,7 @@ const Search = () => {
         setSearchQueryId(data.search_query_id);
         setShowResults(true);
         if (loadMore) {
-          setOffset(currentOffset + 50);
+          setOffset(currentOffset + loadMoreAmount);
         }
         toast({
           title: "Search Complete",
@@ -319,6 +320,8 @@ const Search = () => {
               onLoadMore={() => handleSearch(true)}
               isLoadingMore={isSearching}
               analysisLimit={maxResults}
+              loadMoreAmount={loadMoreAmount}
+              onLoadMoreAmountChange={setLoadMoreAmount}
             />
           )}
         </div>

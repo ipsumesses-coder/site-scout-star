@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square, RefreshCw, FileDown } from "lucide-react";
 import { ScoreBadge } from "./ScoreBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +27,8 @@ interface BusinessResultsProps {
   onLoadMore: () => void;
   isLoadingMore: boolean;
   analysisLimit?: number;
+  loadMoreAmount?: number;
+  onLoadMoreAmountChange?: (amount: number) => void;
 }
 
 interface Business {
@@ -46,7 +50,7 @@ interface Business {
   issues?: string[];
 }
 
-export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, analysisLimit = 3 }: BusinessResultsProps) => {
+export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, analysisLimit = 3, loadMoreAmount = 10, onLoadMoreAmountChange }: BusinessResultsProps) => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
@@ -1019,7 +1023,25 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
             })}
           </div>
 
-          <div className="flex justify-center pt-6">
+          <div className="flex flex-col items-center gap-4 pt-6">
+            <div className="flex items-center gap-3">
+              <Label htmlFor="load-more-amount" className="text-sm font-medium">
+                Load
+              </Label>
+              <Input
+                id="load-more-amount"
+                type="number"
+                min={1}
+                max={50}
+                value={loadMoreAmount}
+                onChange={(e) => onLoadMoreAmountChange?.(Math.max(1, Math.min(50, parseInt(e.target.value) || 10)))}
+                className="w-20 text-center"
+                disabled={isLoadingMore}
+              />
+              <Label htmlFor="load-more-amount" className="text-sm font-medium">
+                more businesses
+              </Label>
+            </div>
             <Button 
               onClick={onLoadMore}
               disabled={isLoadingMore}
@@ -1031,7 +1053,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
                   Loading More...
                 </>
               ) : (
-                "Load 50 More Businesses"
+                `Load ${loadMoreAmount} More Businesses`
               )}
             </Button>
           </div>
