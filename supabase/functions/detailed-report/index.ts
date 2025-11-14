@@ -41,16 +41,19 @@ serve(async (req) => {
       throw new Error(`Business not found: ${businessError?.message}`);
     }
 
-    // Get analysis results
-    const { data: analysis, error: analysisError } = await supabase
+    // Get analysis results (most recent)
+    const { data: analysisResults, error: analysisError } = await supabase
       .from('analysis_results')
       .select('*')
       .eq('business_id', business_id)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (analysisError || !analysis) {
-      throw new Error(`Analysis not found: ${analysisError?.message}`);
+    if (analysisError || !analysisResults || analysisResults.length === 0) {
+      throw new Error(`Analysis not found: ${analysisError?.message || 'No analysis results exist for this business'}`);
     }
+
+    const analysis = analysisResults[0];
 
     // Get action plans
     const { data: actionPlans, error: actionPlansError } = await supabase
