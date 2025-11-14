@@ -35,25 +35,32 @@ serve(async (req) => {
       .from('businesses')
       .select('*')
       .eq('id', business_id)
-      .single();
+      .maybeSingle();
 
-    if (businessError || !business) {
-      throw new Error(`Business not found: ${businessError?.message}`);
+    if (businessError) {
+      throw new Error(`Database error fetching business: ${businessError.message}`);
+    }
+
+    if (!business) {
+      throw new Error('Business not found');
     }
 
     // Get analysis results (most recent)
-    const { data: analysisResults, error: analysisError } = await supabase
+    const { data: analysis, error: analysisError } = await supabase
       .from('analysis_results')
       .select('*')
       .eq('business_id', business_id)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .order('analyzed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (analysisError || !analysisResults || analysisResults.length === 0) {
-      throw new Error(`Analysis not found: ${analysisError?.message || 'No analysis results exist for this business'}`);
+    if (analysisError) {
+      throw new Error(`Database error fetching analysis: ${analysisError.message}`);
     }
 
-    const analysis = analysisResults[0];
+    if (!analysis) {
+      throw new Error('No analysis found for this business. Please run an analysis first.');
+    }
 
     // Get action plans
     const { data: actionPlans, error: actionPlansError } = await supabase
