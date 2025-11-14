@@ -62,6 +62,8 @@ const Search = () => {
   const [country, setCountry] = useState<"UK" | "US">("US");
   const [location, setLocation] = useState("");
   const [industry, setIndustry] = useState("");
+  const [customBusinessType, setCustomBusinessType] = useState("");
+  const [postcode, setPostcode] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [searchQueryId, setSearchQueryId] = useState<string | null>(null);
@@ -81,10 +83,10 @@ const Search = () => {
       return;
     }
     
-    if (searchType === "location" && !location.trim()) {
+    if (searchType === "location" && !postcode.trim() && !location.trim()) {
       toast({
         title: "Location Required", 
-        description: "Please select a location to search",
+        description: "Please enter a postcode/zip code or select a location",
         variant: "destructive"
       });
       return;
@@ -114,9 +116,9 @@ const Search = () => {
       const { data, error } = await supabase.functions.invoke('business-discovery', {
         body: {
           query_type: searchType,
-          location: searchType === "location" ? location : undefined,
+          location: searchType === "location" ? (postcode.trim() || location) : undefined,
           url: searchType === "url" ? url : undefined,
-          industry: industry && industry.trim() !== '' ? industry : undefined,
+          industry: searchType === "location" ? (customBusinessType.trim() || (industry && industry.trim() !== '' ? industry : undefined)) : undefined,
           radius: 25,
           offset: currentOffset,
           max_results: searchType === "url" ? 1 : (loadMore ? undefined : maxResults)
@@ -228,7 +230,19 @@ const Search = () => {
                       </SelectContent>
                     </Select>
                     
-                    <Select value={location} onValueChange={setLocation}>
+                    <Input
+                      type="text"
+                      placeholder={country === "UK" ? "Enter postcode (e.g., SW1A 1AA)" : "Enter zip code (e.g., 10001)"}
+                      value={postcode}
+                      onChange={(e) => setPostcode(e.target.value)}
+                      className="text-lg py-3"
+                    />
+                    
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>OR</span>
+                    </div>
+                    
+                    <Select value={location} onValueChange={setLocation} disabled={!!postcode.trim()}>
                       <SelectTrigger className="text-lg py-3">
                         <SelectValue placeholder={country === "UK" ? "Select County" : "Select City"} />
                       </SelectTrigger>
@@ -240,14 +254,26 @@ const Search = () => {
                     </Select>
                   </div>
                   
-                  <Select value={industry} onValueChange={setIndustry}>
+                  <Input
+                    type="text"
+                    placeholder="Search for specific business type (e.g., accountants, plumbers)"
+                    value={customBusinessType}
+                    onChange={(e) => setCustomBusinessType(e.target.value)}
+                    className="text-lg py-3"
+                  />
+                  
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>OR</span>
+                  </div>
+                  
+                  <Select value={industry} onValueChange={setIndustry} disabled={!!customBusinessType.trim()}>
                     <SelectTrigger className="text-lg py-3">
-                      <SelectValue placeholder="Industry (optional)" />
+                      <SelectValue placeholder="Select Industry" />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-50">
                       <SelectItem value="restaurant">Restaurants</SelectItem>
                       <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="services">Professional Services</SelectItem>
+                      <SelectItem value="professional services">Professional Services</SelectItem>
                       <SelectItem value="healthcare">Healthcare</SelectItem>
                       <SelectItem value="beauty">Beauty & Wellness</SelectItem>
                       <SelectItem value="automotive">Automotive</SelectItem>
@@ -257,7 +283,7 @@ const Search = () => {
                   </Select>
                   
                   <p className="text-sm text-muted-foreground">
-                    Search for businesses in a specific location, optionally filtered by industry
+                    Enter a postcode/zip code or select a location, then optionally specify a business type or industry
                   </p>
                 </div>
               )}

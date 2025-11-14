@@ -165,7 +165,22 @@ async function discoverBusinessesByLocation(
     // Build the search query with industry filter if specified
     let searchQuery = 'business';
     if (industry && industry.trim() !== '') {
-      searchQuery = industry;
+      // Map common industry terms to more specific Google Places queries
+      const industryMap: { [key: string]: string } = {
+        'services': 'gas station OR service station',
+        'professional services': 'accounting OR law firm OR consulting OR financial advisor',
+        'restaurant': 'restaurant',
+        'retail': 'store OR shop OR retail',
+        'healthcare': 'doctor OR clinic OR hospital',
+        'fitness': 'gym OR fitness center',
+        'beauty': 'beauty salon OR spa',
+        'automotive': 'auto repair OR car dealer',
+        'construction': 'construction company OR contractor',
+        'real_estate': 'real estate agency',
+        'legal': 'law firm OR lawyer'
+      };
+      
+      searchQuery = industryMap[industry.toLowerCase()] || industry;
     }
 
     // Use Google Places Text Search API
