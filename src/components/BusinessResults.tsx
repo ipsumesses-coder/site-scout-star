@@ -754,6 +754,18 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
                           </div>
                         </div>
 
+                        {(business as any).brand_consistency_score !== undefined && (
+                          <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm font-medium">Cross-Platform Brand Consistency</div>
+                              <ScoreBadge score={(business as any).brand_consistency_score || 0} />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Analysis across website and social media platforms
+                            </p>
+                          </div>
+                        )}
+
                         <Collapsible
                           open={expandedDetails === business.id}
                           onOpenChange={() => setExpandedDetails(expandedDetails === business.id ? null : business.id)}
@@ -864,6 +876,47 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
                                         <li key={i}>{w}</li>
                                       ))}
                                     </ul>
+                                  </div>
+                                )}
+                                
+                                {business.branding_details.cross_platform_analysis && (
+                                  <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/30">
+                                    <h5 className="font-semibold text-sm mb-3 text-primary">Cross-Platform Consistency Analysis</h5>
+                                    
+                                    {business.branding_details.cross_platform_analysis.consistency_findings?.length > 0 && (
+                                      <div className="mb-3">
+                                        <p className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Consistent Elements:</p>
+                                        <ul className="text-xs list-disc list-inside space-y-0.5">
+                                          {business.branding_details.cross_platform_analysis.consistency_findings.map((f: string, i: number) => (
+                                            <li key={i}>{f}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    
+                                    {business.branding_details.cross_platform_analysis.inconsistencies?.length > 0 && (
+                                      <div className="mb-3">
+                                        <p className="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1">Inconsistencies Found:</p>
+                                        <ul className="text-xs list-disc list-inside space-y-0.5">
+                                          {business.branding_details.cross_platform_analysis.inconsistencies.map((inc: string, i: number) => (
+                                            <li key={i}>{inc}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    
+                                    {business.branding_details.cross_platform_analysis.platform_specific_notes && (
+                                      <div className="grid grid-cols-2 gap-2 mt-3">
+                                        {Object.entries(business.branding_details.cross_platform_analysis.platform_specific_notes).map(([platform, note]: [string, any]) => (
+                                          note && (
+                                            <div key={platform} className="p-2 bg-background/50 rounded border border-border">
+                                              <p className="text-xs font-medium capitalize mb-1">{platform}:</p>
+                                              <p className="text-xs text-muted-foreground">{note}</p>
+                                            </div>
+                                          )
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
