@@ -59,6 +59,10 @@ const US_CITIES = [
 const Search = () => {
   const [searchType, setSearchType] = useState<"url" | "location">("url");
   const [url, setUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [country, setCountry] = useState<"UK" | "US">("US");
   const [location, setLocation] = useState("");
   const [industry, setIndustry] = useState("");
@@ -119,6 +123,12 @@ const Search = () => {
           query_type: searchType,
           location: searchType === "location" ? (postcode.trim() || location) : undefined,
           url: searchType === "url" ? url : undefined,
+          social_media_urls: searchType === "url" ? {
+            twitter: twitterUrl.trim() || undefined,
+            facebook: facebookUrl.trim() || undefined,
+            instagram: instagramUrl.trim() || undefined,
+            linkedin: linkedinUrl.trim() || undefined,
+          } : undefined,
           industry: searchType === "location" ? (customBusinessType.trim() || (industry && industry.trim() !== '' ? industry : undefined)) : undefined,
           radius: 25,
           offset: currentOffset,
@@ -205,14 +215,71 @@ const Search = () => {
 
               {searchType === "url" ? (
                 <div className="space-y-4">
-                  <Input
-                    placeholder="https://example.com or social media profile"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    className="text-lg py-3"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Enter a website URL or social media profile to analyze a specific business
+                  <div className="space-y-2">
+                    <Label htmlFor="website-url" className="text-sm font-medium">Website URL *</Label>
+                    <Input
+                      id="website-url"
+                      placeholder="https://example.com"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      className="text-lg py-3"
+                    />
+                  </div>
+                  
+                  <div className="pt-2 pb-1">
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Social Media Profiles (Optional - for branding consistency analysis)
+                    </Label>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="twitter-url" className="text-xs text-muted-foreground">Twitter/X</Label>
+                      <Input
+                        id="twitter-url"
+                        placeholder="https://twitter.com/username"
+                        value={twitterUrl}
+                        onChange={(e) => setTwitterUrl(e.target.value)}
+                        className="py-2"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="facebook-url" className="text-xs text-muted-foreground">Facebook</Label>
+                      <Input
+                        id="facebook-url"
+                        placeholder="https://facebook.com/page"
+                        value={facebookUrl}
+                        onChange={(e) => setFacebookUrl(e.target.value)}
+                        className="py-2"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="instagram-url" className="text-xs text-muted-foreground">Instagram</Label>
+                      <Input
+                        id="instagram-url"
+                        placeholder="https://instagram.com/username"
+                        value={instagramUrl}
+                        onChange={(e) => setInstagramUrl(e.target.value)}
+                        className="py-2"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="linkedin-url" className="text-xs text-muted-foreground">LinkedIn</Label>
+                      <Input
+                        id="linkedin-url"
+                        placeholder="https://linkedin.com/company/name"
+                        value={linkedinUrl}
+                        onChange={(e) => setLinkedinUrl(e.target.value)}
+                        className="py-2"
+                      />
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground pt-2">
+                    Add social media profiles to analyze branding consistency across platforms
                   </p>
                 </div>
               ) : (

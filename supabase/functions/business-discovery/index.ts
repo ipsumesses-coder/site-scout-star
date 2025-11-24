@@ -9,8 +9,14 @@ const corsHeaders = {
 interface SearchRequest {
   query_type: 'location' | 'url' | 'industry';
   location?: string;
-  industry?: string;
   url?: string;
+  social_media_urls?: {
+    twitter?: string;
+    facebook?: string;
+    instagram?: string;
+    linkedin?: string;
+  };
+  industry?: string;
   radius?: number;
   offset?: number;
   max_results?: number;
@@ -27,9 +33,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { query_type, location, industry, url, radius = 25, offset = 0, max_results = 5 }: SearchRequest = await req.json();
+    const { query_type, location, industry, url, social_media_urls, radius = 25, offset = 0, max_results = 5 }: SearchRequest = await req.json();
 
-    console.log('Business discovery request:', { query_type, location, industry, url, radius, max_results });
+    console.log('Business discovery request:', { query_type, location, industry, url, social_media_urls, radius, max_results });
 
     // Create search query record
     const { data: searchQuery, error: searchError } = await supabase
@@ -68,8 +74,8 @@ serve(async (req) => {
         discoveredBusinesses = await discoverBusinessesByLocation(location, industry, radius, offset, max_results, supabase, cacheKey);
       }
     } else if (query_type === 'url' && url) {
-      // Analyze specific business from URL
-      discoveredBusinesses = await analyzeBusinessFromUrl(url);
+      // Analyze specific business from URL (with optional social media URLs)
+      discoveredBusinesses = await analyzeBusinessFromUrl(url, social_media_urls);
     }
 
     // Insert discovered businesses into database with search_query_id
@@ -254,8 +260,15 @@ async function discoverBusinessesByLocation(
 }
 
 // Analyze specific business from URL by scraping and analyzing website content
-async function analyzeBusinessFromUrl(url: string) {
+// Also analyzes social media profiles for brand consistency if provided
+async function analyzeBusinessFromUrl(
+  url: string, 
+  socialMediaUrls?: { twitter?: string; facebook?: string; instagram?: string; linkedin?: string }
+) {
   console.log(`Analyzing business from URL: ${url}`);
+  if (socialMediaUrls) {
+    console.log('Social media URLs provided for branding consistency analysis:', socialMediaUrls);
+  }
   
   try {
     // Fetch the website HTML content
@@ -280,6 +293,60 @@ async function analyzeBusinessFromUrl(url: string) {
       .trim()
       .slice(0, 8000); // Limit to first 8000 chars for AI analysis
     
+    // Fetch content from social media URLs if provided
+    const socialMediaContent: Record<string, string> = {};
+    if (socialMediaUrls) {
+      for (const [platform, socialUrl] of Object.entries(socialMediaUrls)) {
+        if (socialUrl) {
+          try {
+            const socialResponse = await fetch(socialUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BusinessAnalyzer/1.0)' }
+            });
+            if (socialResponse.ok) {
+              const socialHtml = await socialResponse.text();
+              socialMediaContent[platform] = socialHtml
+                .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                .replace(/<[^>]+>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 3000); // Smaller limit for social content
+            }
+          } catch (e) {
+            console.log(`Failed to fetch ${platform}:`, e instanceof Error ? e.message : 'Unknown error');
+          }
+        }
+      }
+    }
+    
+    // Build AI prompt with all platform content
+    let aiPrompt = `Extract business information from this website content. Return ONLY valid JSON with this exact structure:
+{
+  "name": "business name",
+  "location": "business address or location",
+  "industry": "industry category",
+  "phone": "phone number if found, else null",
+  "email": "email if found, else null",
+  "description": "brief 1-2 sentence description of what the business does",
+  "social_media": {
+    "facebook": "${socialMediaUrls?.facebook || 'url if found'}",
+    "instagram": "${socialMediaUrls?.instagram || 'url if found'}",
+    "twitter": "${socialMediaUrls?.twitter || 'url if found'}",
+    "linkedin": "${socialMediaUrls?.linkedin || 'url if found'}"
+  }
+}
+
+Website URL: ${url}
+Website content: ${textContent}`;
+
+    // Add social media content to prompt if available
+    if (Object.keys(socialMediaContent).length > 0) {
+      aiPrompt += '\n\nAdditional social media profiles provided for analysis:';
+      for (const [platform, content] of Object.entries(socialMediaContent)) {
+        aiPrompt += `\n\n${platform.toUpperCase()} content: ${content.slice(0, 1000)}`;
+      }
+    }
+    
     // Use Lovable AI to extract business information
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -296,24 +363,7 @@ async function analyzeBusinessFromUrl(url: string) {
           },
           {
             role: 'user',
-            content: `Extract business information from this website content. Return ONLY valid JSON with this exact structure:
-{
-  "name": "business name",
-  "location": "business address or location",
-  "industry": "industry category",
-  "phone": "phone number if found, else null",
-  "email": "email if found, else null",
-  "description": "brief 1-2 sentence description of what the business does",
-  "social_media": {
-    "facebook": "url if found",
-    "instagram": "url if found",
-    "twitter": "url if found",
-    "linkedin": "url if found"
-  }
-}
-
-Website URL: ${url}
-Website content: ${textContent}`
+            content: aiPrompt
           }
         ]
       })
@@ -336,6 +386,12 @@ Website content: ${textContent}`
       throw new Error('AI returned invalid JSON');
     }
     
+    // Merge provided social media URLs with discovered ones
+    const finalSocialMedia = {
+      ...(businessInfo.social_media || {}),
+      ...(socialMediaUrls || {})
+    };
+    
     // Return the analyzed business with the original URL
     return [{
       name: businessInfo.name || new URL(url).hostname.replace('www.', ''),
@@ -345,7 +401,7 @@ Website content: ${textContent}`
       phone: businessInfo.phone || null,
       email: businessInfo.email || null,
       description: businessInfo.description || `Business at ${url}`,
-      social_media: businessInfo.social_media || {}
+      social_media: finalSocialMedia
     }];
     
   } catch (error) {
@@ -361,7 +417,7 @@ Website content: ${textContent}`
       phone: null,
       email: null,
       description: `Analysis failed for ${url}. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      social_media: {}
+      social_media: socialMediaUrls || {}
     }];
   }
 }

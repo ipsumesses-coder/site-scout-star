@@ -152,8 +152,12 @@ serve(async (req) => {
 });
 
 async function performAIAnalysis(business: any, apiKey: string) {
+  // Check if multi-platform branding analysis is needed
+  const hasMultiplePlatforms = business.social_media && 
+    Object.values(business.social_media).filter(url => url).length > 0;
+  
   const analysisPrompt = `
-Analyze the following business for SEO, website design, UI/UX, and branding effectiveness. 
+Analyze the following business for SEO, website design, UI/UX, and branding effectiveness${hasMultiplePlatforms ? ', including CROSS-PLATFORM BRANDING CONSISTENCY' : ''}. 
 Provide numerical scores (0-100) and detailed analysis with specific examples.
 
 Business Details:
@@ -162,12 +166,14 @@ Business Details:
 - Industry: ${business.industry}
 - Location: ${business.location}
 - Description: ${business.description}
+${hasMultiplePlatforms ? `\n- Social Media Profiles:\n${Object.entries(business.social_media).map(([platform, url]) => url ? `  * ${platform}: ${url}` : '').filter(Boolean).join('\n')}` : ''}
 
 Please analyze:
 1. SEO (keyword usage, meta tags, page speed, mobile optimization, structured data)
 2. Website Design (layout, visual hierarchy, typography, color scheme, imagery)
 3. UI/UX (navigation, user flow, accessibility, interaction design, mobile experience)
 4. Branding (brand identity, consistency, messaging, voice, visual elements)
+${hasMultiplePlatforms ? `\n5. CROSS-PLATFORM CONSISTENCY: Analyze if branding (colors, logos, messaging, tone, visual style) is consistent across the website and all social media platforms. Provide specific examples of consistency or inconsistency.` : ''}
 
 Format your response as JSON with this structure:
 {
@@ -175,6 +181,7 @@ Format your response as JSON with this structure:
   "design_score": number,
   "uiux_score": number,
   "branding_score": number,
+  ${hasMultiplePlatforms ? '"brand_consistency_score": number (0-100, how consistent is branding across all platforms),' : ''}
   "seo_details": {
     "strengths": ["specific strength 1", "specific strength 2"],
     "weaknesses": ["specific weakness 1", "specific weakness 2"],
@@ -194,6 +201,7 @@ Format your response as JSON with this structure:
     "strengths": [],
     "weaknesses": [],
     "opportunities": []
+    ${hasMultiplePlatforms ? `,\n    "cross_platform_analysis": {\n      "consistency_findings": ["finding 1", "finding 2"],\n      "inconsistencies": ["inconsistency 1 with specific platform examples", "inconsistency 2"],\n      "platform_specific_notes": {\n        "twitter": "notes about twitter presence",\n        "facebook": "notes about facebook presence",\n        "instagram": "notes about instagram presence",\n        "linkedin": "notes about linkedin presence"\n      }\n    }` : ''}
   },
   "issues_identified": ["issue 1", "issue 2"],
   "recommendations": ["recommendation 1", "recommendation 2"]
@@ -211,7 +219,7 @@ Format your response as JSON with this structure:
       messages: [
         {
           role: 'system',
-          content: 'You are a business analysis expert specializing in SEO, web design, and branding assessment. Provide detailed, actionable insights.'
+          content: 'You are a business analysis expert specializing in SEO, web design, branding assessment, and cross-platform brand consistency. Provide detailed, actionable insights.'
         },
         {
           role: 'user',
