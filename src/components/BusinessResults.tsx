@@ -1100,34 +1100,68 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
                           </div>
 
                           {reports.has(business.id) && (
-                            <div className="flex flex-col sm:flex-row gap-2">
-                              <Button 
-                                variant="secondary" 
-                                className="flex-1"
-                                onClick={() => handleGenerateProposal(business.id)}
-                                disabled={generatingProposal === business.id}
-                              >
-                                {generatingProposal === business.id ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Generating...
-                                  </>
-                                ) : (
-                                  <>
-                                    <FileText className="h-4 w-4 mr-2" />
-                                    Generate Correction Proposal
-                                  </>
-                                )}
-                              </Button>
-                              {proposals.has(business.id) && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Generate Proposals</p>
+                              <div className="flex flex-col sm:flex-row gap-2">
                                 <Button 
-                                  variant="outline" 
-                                  onClick={() => downloadProposal(business.id)}
+                                  variant="secondary" 
+                                  className="flex-1"
+                                  onClick={() => handleGenerateClientProposal(business.id)}
+                                  disabled={generatingClientProposal === business.id}
                                 >
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download
+                                  {generatingClientProposal === business.id ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Users className="h-4 w-4 mr-2" />
+                                      Client Proposal
+                                    </>
+                                  )}
                                 </Button>
-                              )}
+                                <Button 
+                                  variant="secondary" 
+                                  className="flex-1"
+                                  onClick={() => handleGenerateProposal(business.id)}
+                                  disabled={generatingProposal === business.id}
+                                >
+                                  {generatingProposal === business.id ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wrench className="h-4 w-4 mr-2" />
+                                      Technical Proposal
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                {clientProposals.has(business.id) && (
+                                  <Button 
+                                    variant="outline" 
+                                    className="flex-1"
+                                    onClick={() => downloadClientProposal(business.id)}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Client Proposal
+                                  </Button>
+                                )}
+                                {proposals.has(business.id) && (
+                                  <Button 
+                                    variant="outline" 
+                                    className="flex-1"
+                                    onClick={() => downloadProposal(business.id)}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Technical Proposal
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           )}
 
