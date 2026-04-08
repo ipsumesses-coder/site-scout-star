@@ -417,6 +417,64 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     URL.revokeObjectURL(url);
   };
 
+  const downloadClientProposal = (businessId: string) => {
+    const proposal = clientProposals.get(businessId);
+    const business = businesses.find(b => b.id === businessId);
+    if (!proposal || !business) return;
+
+    let text = `${proposal.document_title || 'CLIENT PROPOSAL'}\n${'='.repeat(60)}\n\n`;
+    if (proposal.greeting) text += `${proposal.greeting}\n\n`;
+    if (proposal.executive_overview) text += `OVERVIEW\n${'-'.repeat(40)}\n${proposal.executive_overview}\n\n`;
+    
+    if (proposal.what_we_found?.length) {
+      text += `WHAT WE FOUND\n${'-'.repeat(40)}\n`;
+      proposal.what_we_found.forEach((item: any, i: number) => {
+        text += `\n${i + 1}. ${item.area}\n`;
+        text += `   Current Situation: ${item.current_situation}\n`;
+        text += `   What This Means: ${item.what_this_means}\n`;
+        text += `   Our Recommendation: ${item.our_recommendation}\n`;
+        text += `   Expected Benefit: ${item.expected_benefit}\n`;
+      });
+      text += '\n';
+    }
+
+    if (proposal.quick_wins?.length) {
+      text += `QUICK WINS\n${'-'.repeat(40)}\n`;
+      proposal.quick_wins.forEach((qw: any, i: number) => {
+        text += `${i + 1}. ${qw.improvement} - ${qw.benefit} (${qw.timeframe})\n`;
+      });
+      text += '\n';
+    }
+
+    if (proposal.investment_overview) {
+      text += `INVESTMENT OVERVIEW\n${'-'.repeat(40)}\n${proposal.investment_overview.summary}\n\n`;
+      proposal.investment_overview.packages?.forEach((pkg: any) => {
+        text += `  ${pkg.name}: ${pkg.description}\n  Price: ${pkg.price_range} | Best for: ${pkg.best_for}\n  Expected ROI: ${pkg.expected_roi}\n\n`;
+      });
+    }
+
+    if (proposal.timeline_overview) {
+      text += `TIMELINE\n${'-'.repeat(40)}\n${proposal.timeline_overview.summary}\n\n`;
+      proposal.timeline_overview.phases?.forEach((phase: any) => {
+        text += `  ${phase.phase_name} (${phase.duration}): ${phase.what_happens}\n  You'll see: ${phase.what_you_will_see}\n\n`;
+      });
+    }
+
+    if (proposal.why_act_now) text += `WHY ACT NOW\n${'-'.repeat(40)}\n${proposal.why_act_now}\n\n`;
+    if (proposal.next_steps) text += `NEXT STEPS\n${'-'.repeat(40)}\n${proposal.next_steps}\n\n`;
+    if (proposal.closing) text += `${proposal.closing}\n`;
+
+    const dataBlob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${business.name.replace(/\s+/g, '-')}-client-proposal.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const downloadEmail = (businessId: string) => {
     const email = emails.get(businessId);
     const business = businesses.find(b => b.id === businessId);
