@@ -299,6 +299,7 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     } finally {
       setGeneratingClientProposal(null);
     }
+  };
 
   const handleGenerateEmail = async (businessId: string) => {
     try {
