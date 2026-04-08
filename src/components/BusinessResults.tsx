@@ -59,10 +59,12 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
   const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [generatingProposal, setGeneratingProposal] = useState<string | null>(null);
+  const [generatingClientProposal, setGeneratingClientProposal] = useState<string | null>(null);
   const [selectedBusinesses, setSelectedBusinesses] = useState<Set<string>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
   const [reports, setReports] = useState<Map<string, any>>(new Map());
   const [proposals, setProposals] = useState<Map<string, any>>(new Map());
+  const [clientProposals, setClientProposals] = useState<Map<string, any>>(new Map());
   const [emails, setEmails] = useState<Map<string, any>>(new Map());
   const isDemoMode = localStorage.getItem("demo_mode") === "true";
   const { toast } = useToast();
