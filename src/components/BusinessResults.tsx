@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square, RefreshCw, FileDown } from "lucide-react";
+import { ExternalLink, FileText, Mail, Loader2, ChevronDown, ChevronUp, Download, CheckSquare, Square, RefreshCw, FileDown, Users, Wrench } from "lucide-react";
 import { ScoreBadge } from "./ScoreBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
