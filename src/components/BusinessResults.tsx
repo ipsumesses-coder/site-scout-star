@@ -257,6 +257,49 @@ export const BusinessResults = ({ searchQueryId, onLoadMore, isLoadingMore, anal
     }
   };
 
+  const handleGenerateClientProposal = async (businessId: string) => {
+    const report = reports.get(businessId);
+    if (!report) {
+      toast({
+        title: "No Report Found",
+        description: "Please generate a detailed report first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setGeneratingClientProposal(businessId);
+    try {
+      const { data, error } = await supabase.functions.invoke('client-proposal', {
+        body: { 
+          business_id: businessId,
+          report_data: report
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        const newClientProposals = new Map(clientProposals);
+        newClientProposals.set(businessId, data.proposal);
+        setClientProposals(newClientProposals);
+        
+        toast({
+          title: "Client Proposal Generated",
+          description: "Non-technical client proposal has been generated successfully"
+        });
+      }
+    } catch (error) {
+      console.error('Client proposal generation error:', error);
+      toast({
+        title: "Client Proposal Failed",
+        description: error instanceof Error ? error.message : "Failed to generate client proposal",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingClientProposal(null);
+    }
+
   const handleGenerateEmail = async (businessId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('email-generation', {
